@@ -1,0 +1,17 @@
+[package]
+name = "xzrb"
+version = "0.1.0"
+authors = ["tone <tony.y.gong@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+"evdev-rs" = "0.5"
+"argh" = "0.1"
+"log" = "0.4"
+"simple_logger" = "1.11"
+"futures" = "0.3"
+"glob" = "0.3"
+"evdev-utils" = { git = "https://github.com/ttttcrngyblflpp/evdev-utils", branch = "main" }
+"libc" = "0.2"
