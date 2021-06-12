@@ -1,10 +1,10 @@
 use argh::FromArgs;
-use evdev_rs::enums::{EventCode, EV_KEY, EV_SYN, EV_ABS, InputProp};
+use evdev_rs::enums::{EventCode, InputProp, EV_ABS, EV_KEY, EV_SYN};
 use evdev_rs::{DeviceWrapper as _, InputEvent, UInputDevice};
-use evdev_utils::{DeviceWrapperExt as _};
-use futures::{TryStreamExt as _};
-use log::{debug, info, trace};
 use evdev_utils::AsyncDevice;
+use evdev_utils::DeviceWrapperExt as _;
+use futures::TryStreamExt as _;
+use log::{debug, info, trace};
 
 #[derive(FromArgs)]
 /// Hako input remapping arguments.
@@ -83,6 +83,7 @@ enum Mod {
     Null,
     X,
     Y,
+    Shield,
 }
 
 #[derive(Clone, Copy)]
@@ -98,21 +99,14 @@ impl State {
         match m {
             Mod::Null => {
                 if x != 0 && y != 0 {
-                    (700*x, 700*y)
+                    (700 * x, 700 * y)
                 } else {
-                    (x*MAX_STICK, y*MAX_STICK)
+                    (x * MAX_STICK, y * MAX_STICK)
                 }
             }
-            Mod::X => {
-                (x*737, y*if x == 0 { 650 } else { 288 })
-            }
-            Mod::Y => {
-                (x*288, if x == 0 {
-                    y*662
-                } else {
-                    y*650
-                })
-            }
+            Mod::X => (x * 737, y * if x == 0 { 650 } else { 313 }),
+            Mod::Y => (if y == 0 { x * 288 } else { x * 297 }, y * 700),
+            Mod::Shield => (x * 687, y * 650),
         }
     }
 }
@@ -133,19 +127,29 @@ fn main() {
     let uninit_device = evdev_rs::UninitDevice::new().expect("failed to create uninit device");
     uninit_device.set_name("hako");
     uninit_device.set_bustype(3);
-    let () = uninit_device.enable(&InputProp::INPUT_PROP_BUTTONPAD).expect("enable buttonpad pty");
-    let () = uninit_device.enable_gamepad().expect("failed to enable gamepad functionality");
-    let () = uninit_device.enable_event_code(&EventCode::EV_ABS(EV_ABS::ABS_X), Some(&STICK_ABSINFO))
+    let () = uninit_device
+        .enable(&InputProp::INPUT_PROP_BUTTONPAD)
+        .expect("enable buttonpad pty");
+    let () = uninit_device
+        .enable_gamepad()
+        .expect("failed to enable gamepad functionality");
+    let () = uninit_device
+        .enable_event_code(&EventCode::EV_ABS(EV_ABS::ABS_X), Some(&STICK_ABSINFO))
         .expect("failed to enable ABS axis");
-    let () = uninit_device.enable_event_code(&EventCode::EV_ABS(EV_ABS::ABS_Y), Some(&STICK_ABSINFO))
+    let () = uninit_device
+        .enable_event_code(&EventCode::EV_ABS(EV_ABS::ABS_Y), Some(&STICK_ABSINFO))
         .expect("failed to enable ABS axis");
-    let () = uninit_device.enable_event_code(&EventCode::EV_ABS(EV_ABS::ABS_RX), Some(&STICK_ABSINFO))
+    let () = uninit_device
+        .enable_event_code(&EventCode::EV_ABS(EV_ABS::ABS_RX), Some(&STICK_ABSINFO))
         .expect("failed to enable ABS axis");
-    let () = uninit_device.enable_event_code(&EventCode::EV_ABS(EV_ABS::ABS_RY), Some(&STICK_ABSINFO))
+    let () = uninit_device
+        .enable_event_code(&EventCode::EV_ABS(EV_ABS::ABS_RY), Some(&STICK_ABSINFO))
         .expect("failed to enable ABS axis");
-    let () = uninit_device.enable_event_code(&EventCode::EV_ABS(EV_ABS::ABS_Z), Some(&TRIGGER_ABSINFO))
+    let () = uninit_device
+        .enable_event_code(&EventCode::EV_ABS(EV_ABS::ABS_Z), Some(&TRIGGER_ABSINFO))
         .expect("failed to enable ABS trigger");
-    let () = uninit_device.enable_event_code(&EventCode::EV_ABS(EV_ABS::ABS_RZ), Some(&TRIGGER_ABSINFO))
+    let () = uninit_device
+        .enable_event_code(&EventCode::EV_ABS(EV_ABS::ABS_RZ), Some(&TRIGGER_ABSINFO))
         .expect("failed to enable ABS trigger");
     let l = UInputDevice::create_from_device(&uninit_device).expect("create uinput device");
 
@@ -168,11 +172,20 @@ fn main() {
             return futures::future::ready(Ok(()));
         }
         futures::future::ready(match event_code {
-            // left stick
+            // modifiers
             EventCode::EV_KEY(EV_KEY::KEY_A) => {
-                state.y = value;
+                state.m = if value == 1 { Mod::X } else { Mod::Null };
                 send_stick(&l, state.coord())
             }
+            EventCode::EV_KEY(EV_KEY::KEY_SEMICOLON) => {
+                state.m = if value == 1 { Mod::Y } else { Mod::Null };
+                send_stick(&l, state.coord())
+            }
+            EventCode::EV_KEY(EV_KEY::KEY_LEFTCTRL) => {
+                state.m = if value == 1 { Mod::Shield } else { Mod::Null };
+                send_stick(&l, state.coord())
+            }
+            // left stick
             EventCode::EV_KEY(EV_KEY::KEY_O) => {
                 state.x = -value;
                 send_stick(&l, state.coord())
@@ -185,38 +198,59 @@ fn main() {
                 state.x = value;
                 send_stick(&l, state.coord())
             }
-            // modifiers
             EventCode::EV_KEY(EV_KEY::KEY_ENTER) => {
-                state.m = if value == 1 { Mod::X } else { Mod::Null };
+                state.y = value;
                 send_stick(&l, state.coord())
+            }
+            // dpad
+            EventCode::EV_KEY(EV_KEY::KEY_Q) => {
+                send_event(&l, EventCode::EV_KEY(EV_KEY::BTN_DPAD_LEFT), value)
+            }
+            EventCode::EV_KEY(EV_KEY::KEY_J) => {
+                send_event(&l, EventCode::EV_KEY(EV_KEY::BTN_DPAD_UP), value)
+            }
+            EventCode::EV_KEY(EV_KEY::KEY_K) => {
+                send_event(&l, EventCode::EV_KEY(EV_KEY::BTN_DPAD_RIGHT), value)
             }
             EventCode::EV_KEY(EV_KEY::KEY_TAB) => {
-                state.m = if value == 1 { Mod::Y } else { Mod::Null };
-                send_stick(&l, state.coord())
+                send_event(&l, EventCode::EV_KEY(EV_KEY::BTN_DPAD_DOWN), value)
             }
-            // B
+            // Start
+            EventCode::EV_KEY(EV_KEY::KEY_Y) => {
+                send_event(&l, EventCode::EV_KEY(EV_KEY::BTN_START), value)
+            }
+
+            // L
             EventCode::EV_KEY(EV_KEY::KEY_S) => {
-                send_event(&l, EventCode::EV_KEY(EV_KEY::BTN_EAST), value)
+                send_event(&l, EventCode::EV_ABS(EV_ABS::ABS_Z), value * MAX_TRIGGER)
+            }
+            // lightest shield possible
+            EventCode::EV_KEY(EV_KEY::KEY_Z) => {
+                send_event(&l, EventCode::EV_ABS(EV_ABS::ABS_RZ), value * 49)
+            }
+            // medium shield
+            EventCode::EV_KEY(EV_KEY::KEY_RIGHTCTRL) => {
+                send_event(&l, EventCode::EV_ABS(EV_ABS::ABS_RZ), value * 92)
             }
             // X
             EventCode::EV_KEY(EV_KEY::KEY_N) => {
                 send_event(&l, EventCode::EV_KEY(EV_KEY::BTN_WEST), value)
             }
-            // R
-            EventCode::EV_KEY(EV_KEY::KEY_T) => {
-                send_event(&l, EventCode::EV_ABS(EV_ABS::ABS_Z), value * MAX_TRIGGER)
-            }
-            // lightest shield possible
-            EventCode::EV_KEY(EV_KEY::KEY_W) => {
-                send_event(&l, EventCode::EV_ABS(EV_ABS::ABS_Z), value * 43)
-            }
-            // medium shield
-            EventCode::EV_KEY(EV_KEY::KEY_C) => {
-                send_event(&l, EventCode::EV_ABS(EV_ABS::ABS_Z), value * 92)
+            // Y
+            EventCode::EV_KEY(EV_KEY::KEY_V) => {
+                send_event(&l, EventCode::EV_KEY(EV_KEY::BTN_NORTH), value)
             }
             // Z
-            EventCode::EV_KEY(EV_KEY::KEY_H) => {
+            EventCode::EV_KEY(EV_KEY::KEY_T) => {
                 send_event(&l, EventCode::EV_KEY(EV_KEY::BTN_Z), value)
+            }
+            // B
+            EventCode::EV_KEY(EV_KEY::KEY_H) => {
+                send_event(&l, EventCode::EV_KEY(EV_KEY::BTN_EAST), value)
+            }
+            // R
+            EventCode::EV_KEY(EV_KEY::KEY_M) => {
+                send_event(&l, EventCode::EV_ABS(EV_ABS::ABS_RZ), value * MAX_TRIGGER)
             }
             // A
             EventCode::EV_KEY(EV_KEY::KEY_BACKSPACE) => {
@@ -235,11 +269,8 @@ fn main() {
             EventCode::EV_KEY(EV_KEY::KEY_SPACE) => {
                 send_event(&l, EventCode::EV_ABS(EV_ABS::ABS_RX), value * MAX_STICK)
             }
-            // start select
-            EventCode::EV_KEY(EV_KEY::KEY_6) => {
-                send_event(&l, EventCode::EV_KEY(EV_KEY::BTN_START), value)
-            }
             _ => Ok(()),
         })
-    })).expect("keyboard event stream ended");
+    }))
+    .expect("keyboard event stream ended");
 }
