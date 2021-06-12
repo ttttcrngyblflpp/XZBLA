@@ -57,13 +57,13 @@ fn log_event(event: &InputEvent) {
     }
 }
 
-const MAX_STICK: i32 = 1000;
+const MAX_STICK: i32 = 80;
 const MAX_TRIGGER: i32 = 140;
 
 const STICK_ABSINFO: libc::input_absinfo = libc::input_absinfo {
     value: 0,
-    minimum: -1590,
-    maximum: 1590,
+    minimum: -127,
+    maximum: 127,
     fuzz: 0,
     flat: 0,
     resolution: 0,
@@ -99,14 +99,14 @@ impl State {
         match m {
             Mod::Null => {
                 if x != 0 && y != 0 {
-                    (700 * x, 700 * y)
+                    (56 * x, 56 * y)
                 } else {
-                    (x * MAX_STICK, y * MAX_STICK)
+                    (x * 80, y * 80)
                 }
             }
-            Mod::X => (x * 737, y * if x == 0 { 650 } else { 313 }),
-            Mod::Y => (if y == 0 { x * 288 } else { x * 297 }, y * 700),
-            Mod::Shield => (x * 687, y * 650),
+            Mod::X => (x * 59, y * if x == 0 { 52 } else { 25 }),
+            Mod::Y => (x * if y == 0 { 23 } else { 24 }, y * 56),
+            Mod::Shield => (x * 54, y * 52),
         }
     }
 }

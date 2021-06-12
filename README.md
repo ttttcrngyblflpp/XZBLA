@@ -27,11 +27,16 @@ The analog stick co-ordinates are as follows:
 
 |Modifier|X|Y|Diagonal|
 |---|---|---|---|
-|Null|1.000|1.000|(0.700, 0.700)|
-|X|0.737|0.650|(0.737, 0.313)|
-|Y|0.288|0.700|(0.297, 0.700)|
-|Shield|0.687|0.650|(0.687, 0.650)|
+|Null|1.0000|1.0000|(0.7000, 0.7000)|
+|X|0.7375|0.6500|(0.7375, 0.3125)|
+|Y|0.2875|0.7000|(0.3000, 0.7000)|
+|Shield|0.6750|0.6500|(0.6750, 0.6500)|
 
 Mod-X is used to input tilt-attacks (including angling ftilt up or down) and shallow wavedash/upB
 angles. Mod-Y is used for steep angles, tilting the shield horizontally for shield dropping, and
 turnaround neutral-B. Mod-Shield is used to tilt the shield maximally in each axis.
+
+## Known Bugs
+
+- [ ] It seems impossible to have the analog stick co-ordinates perfect due to the way dolphin maps
+  a uinput device's inputs to a gamecube controller's raw input values.
