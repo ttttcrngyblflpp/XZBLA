@@ -43,6 +43,15 @@ turnaround neutral-B. Mod-Shield is used to tilt the shield maximally in each ax
 C-stick right modifies diagonals already modified with MX or MY by bringing them halfway towards the
 diagonal. It is intended for finer-grained upB angles.
 
+## Illegal Features
+
+The `jump_delay_ms` argument is used to add a delay between when the corresponding key is pressed
+and when the X button is input. This makes short hop timings much more lenient (which are
+unnecessarily difficult on mechanical keyboards compared to controller and makes characters with a
+3-frame jumpsquat almost completely unviable) at the cost of a fixed amount of input lag. This
+feature is illegal according to the controller addendum because it is a macro which induces input on
+a future frame than when the physical button is actuated.
+
 ## Known Bugs
 
 - [ ] It seems impossible to have the analog stick co-ordinates perfect due to the way dolphin maps
