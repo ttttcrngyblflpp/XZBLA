@@ -3,7 +3,7 @@
 Emulates gamepad inputs for the purpose of playing Super Mash Bros Melee on Linux with a keyboard.
 
 The layout is legal according to the controller addendum used at most tournaments that allow
-box-style controllers. [Link to diagram](shorturl.at/auS01).
+box-style controllers. [Link to diagram](https://shorturl.at/auS01).
 
 ![Keyboard Layout](img/layout.png)
 
