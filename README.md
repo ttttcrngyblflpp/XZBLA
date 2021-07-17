@@ -1,11 +1,11 @@
-# LXZBRA
+# XZLBA
 
 Emulates gamepad inputs for the purpose of playing Super Mash Bros Melee on Linux with a keyboard.
 
 The layout is legal according to the controller addendum used at most tournaments that allow
-box-style controllers.
+box-style controllers. [Link to diagram](shorturl.at/auS01).
 
-![LXZBRA Keyboard Layout](img/layout.png)
+![Keyboard Layout](img/layout.png)
 
 The layout is named after the right-hand buttons from pinky inwards. The layout is inspired by
 B0XX, with a few modifications:

@@ -276,44 +276,36 @@ fn main() {
                             send_event(&l, EventCode::EV_KEY(EV_KEY::BTN_START), value)
                         }
 
-                        // L
-                        EventCode::EV_KEY(EV_KEY::KEY_S) => {
-                            send_event(&l, EventCode::EV_ABS(EV_ABS::ABS_Z), value * MAX_TRIGGER)
-                        }
-                        // lightest shield possible
-                        EventCode::EV_KEY(EV_KEY::KEY_Z) => {
-                            send_event(&l, EventCode::EV_ABS(EV_ABS::ABS_RZ), value * 49)
-                        }
-                        // medium shield
-                        EventCode::EV_KEY(EV_KEY::KEY_RIGHTCTRL) => {
-                            send_event(&l, EventCode::EV_ABS(EV_ABS::ABS_RZ), value * 92)
-                        }
                         // X
-                        EventCode::EV_KEY(EV_KEY::KEY_N) if value == 1 => {
+                        EventCode::EV_KEY(EV_KEY::KEY_S) if value == 1 => {
                             if jump_delay_ms == 0 {
                                 send_event(&l, EventCode::EV_KEY(EV_KEY::BTN_WEST), 1)
                             } else {
                                 delayed_jump_fut.set(futures::FutureExt::fuse(async_io::Timer::after(std::time::Duration::from_millis(jump_delay_ms))));
                             }
                         }
-                        EventCode::EV_KEY(EV_KEY::KEY_N) if value == 0 => {
+                        EventCode::EV_KEY(EV_KEY::KEY_S) if value == 0 => {
                             send_event(&l, EventCode::EV_KEY(EV_KEY::BTN_WEST), 0)
                         }
-                        // Y
-                        EventCode::EV_KEY(EV_KEY::KEY_V) => {
-                            send_event(&l, EventCode::EV_KEY(EV_KEY::BTN_NORTH), value)
-                        }
                         // Z
-                        EventCode::EV_KEY(EV_KEY::KEY_T) => {
+                        EventCode::EV_KEY(EV_KEY::KEY_N) => {
                             send_event(&l, EventCode::EV_KEY(EV_KEY::BTN_Z), value)
+                        }
+                        // L
+                        EventCode::EV_KEY(EV_KEY::KEY_T) => {
+                            send_event(&l, EventCode::EV_ABS(EV_ABS::ABS_Z), value * MAX_TRIGGER)
+                        }
+                        // lightest shield possible
+                        EventCode::EV_KEY(EV_KEY::KEY_C) => {
+                            send_event(&l, EventCode::EV_ABS(EV_ABS::ABS_RZ), value * 49)
+                        }
+                        // medium shield
+                        EventCode::EV_KEY(EV_KEY::KEY_W) => {
+                            send_event(&l, EventCode::EV_ABS(EV_ABS::ABS_RZ), value * 92)
                         }
                         // B
                         EventCode::EV_KEY(EV_KEY::KEY_H) => {
                             send_event(&l, EventCode::EV_KEY(EV_KEY::BTN_EAST), value)
-                        }
-                        // R
-                        EventCode::EV_KEY(EV_KEY::KEY_M) => {
-                            send_event(&l, EventCode::EV_ABS(EV_ABS::ABS_RZ), value * MAX_TRIGGER)
                         }
                         // A
                         EventCode::EV_KEY(EV_KEY::KEY_BACKSPACE) => {
