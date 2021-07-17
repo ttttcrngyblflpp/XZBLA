@@ -16,14 +16,10 @@ B0XX, with a few modifications:
   modifiers (up to 4 can be comfortably used, currently only 3 are defined), and also adheres to the
   philosophy of having the fingers rolling from pinky to thumb, since it's often the case that one
   wants to ensure that a modifier is activated before inputting the directional buttons.
-- Jump and grab on the right hand have been swapped, because L-cancelled aerials and jump-cancel grab
-  both flow from jump to grab. Though the ring finger is the weakest finger, short hopping doesn't
-  seem to be problematic (in fact short hopping with characters with 3-frame jumpsquats seem
-  completely inconsistent on mechanical key switches with 4mm of travel anyway so it's more limited
-  by hardware than anything else).
-- Y is not intended to be used, the B0XX's philosophy of "not crossing rows" is not applicable on a
-  keyboard where the layout of keys are compact. Pressing X and then R to wavedash will not really
-  pose any problems.
+- Of the buttons on the right hand, jump must be on the pinky as jump needs to
+  be followed by grab, air dodge, and shine with strict timing requirements. Of
+  these, air dodge and B are used more frequently, so they are given the two
+  stronger fingers.
 
 The analog stick co-ordinates are as follows:
 
