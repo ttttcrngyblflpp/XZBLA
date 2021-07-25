@@ -1,11 +1,41 @@
-# XZLBA
+# XZBLA
 
 Emulates gamepad inputs for the purpose of playing Super Mash Bros Melee on Linux with a keyboard.
 
 The layout is legal according to the controller addendum used at most tournaments that allow
-box-style controllers. [Link to diagram](https://shorturl.at/auS01).
+box-style controllers. 
 
-![Keyboard Layout](img/layout.png)
+*Note* that the diagram assumes that the pinky rests on MX and X
+respectively, and the thumbs rest over Analog-Down and A respectively. On a
+keyboard with sufficient pinky columnar stagger, it wouldn't be necessary to
+move the pinky down one row; but this is not normally the case with most
+keyboards even if they have columnar stagger.
+
+```
++---+---+---+---+---+---+                               +---+---+---+---+---+---+
+|   |   |   |   |   |   |                               |   |   |   |   |   |   |
+|   |   |   |   |   |   |                               |   |LS | R |   |   |   |
+|   |   |   |   |   |   |                               |   |   |   |   |   |   |
++---+---+---+---+---+---+                               +---+---+---+---+---+---+
+|   |   |   |   |   |   |                               |   |   |   |   |   |   |
+|MS |MY |A-L|A-U|A-R|   |                               |   | L | B | Z | Y |   |
+|   |   |   |   |   |   |                               |   |   |   |   |   |   |
++---+---+---+---+---+---+                               +---+---+---+---+---+---+
+|   |   |   |   |   |   |                               |   |   |   |   |   |   |
+|   |MX |D-L|D-U|D-R|   | +---+---+           +---+---+ |   |MS |   |   | X |   |
+|   |   |   |   |   |   | |   |   |           |   |   | |   |   |   |   |   |   |
++---+---+---+---+---+---+ |   |   |           |   |C-U| +---+---+---+---+---+---+
+                          |   |   |           |   |   |
+                      +---+---+---+           +---+---+---+
+                      |   |   |   |           |   |   |   |
+                      |   |   |   |           |C-L|   |   |
+                      |   |   |   |           |   |   |   |
+                      |D-D|A-D+---+           +---+ A |C-R|
+                      |   |   |   |           |   |   |   |
+                      |   |   |   |           |C-D|   |   |
+                      |   |   |   |           |   |   |   |
+                      +---+---+---+           +---+---+---+
+```
 
 The layout is named after the right-hand buttons from pinky inwards. The layout is inspired by
 B0XX, with a few modifications:
@@ -26,17 +56,17 @@ The analog stick co-ordinates are as follows:
 |Modifier|X|Y|Diagonal|
 |---|---|---|---|
 |X|0.7375|0.6500|(0.7375, 0.3125)/23&deg;|
-|X+C-right|||(0.8250, 0.5625)/34.3&deg;|
+|X+A|||(0.8250, 0.5625)/34.3&deg;|
 |Shield|0.6750|0.6500|(0.6750, 0.6500)/43.9&deg;|
 |Null|1.0000|1.0000|(0.7000, 0.7000)/45&deg;|
-|Y+C-right|||(0.5625, 0.8250)/55.7&deg;|
+|Y+A|||(0.5625, 0.8250)/55.7&deg;|
 |Y|0.2875|0.6500|(0.3000, 0.7000)/66.8&deg;|
 
 MX is used to input tilt-attacks (including angling ftilt up or down) and shallow wavedash/upB
 angles. MY is used for steep angles, tilting the shield horizontally for shield dropping, and
 turnaround neutral-B. Mod-Shield is used to tilt the shield maximally in each axis.
 
-C-stick right modifies diagonals already modified with MX or MY by bringing them halfway towards the
+A modifies diagonals already modified with MX or MY by bringing them halfway towards the
 diagonal. It is intended for finer-grained upB angles.
 
 ## Illegal Features

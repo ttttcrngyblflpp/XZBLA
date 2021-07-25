@@ -1,10 +1,9 @@
 #![deny(unused_results)]
 
 use argh::FromArgs;
-use evdev_rs::enums::{EventCode, InputProp, EV_ABS, EV_KEY, EV_SYN};
+use evdev_rs::enums::{EventCode, InputProp, EV_ABS, EV_KEY};
 use evdev_rs::{DeviceWrapper as _, InputEvent, UInputDevice};
-use evdev_utils::AsyncDevice;
-use evdev_utils::DeviceWrapperExt as _;
+use evdev_utils::{AsyncDevice, DeviceWrapperExt as _, UInputExt as _};
 use futures::{StreamExt as _, TryStreamExt as _};
 use log::{debug, info, trace};
 
@@ -18,40 +17,6 @@ struct Args {
     /// number of frames to delay actuation of X when the corresponding key is pressed
     #[argh(option, short = 'j', default = "0")]
     jump_delay_ms: u64,
-}
-
-fn send_syn(l: &UInputDevice) {
-    l.write_event(&InputEvent {
-        event_code: EventCode::EV_SYN(EV_SYN::SYN_REPORT),
-        value: 0,
-        time: evdev_rs::TimeVal {
-            tv_sec: 0,
-            tv_usec: 0,
-        },
-    })
-    .expect("failed to write SYN event");
-}
-
-fn send_event(l: &UInputDevice, event_code: EventCode, value: i32) {
-    let event = InputEvent {
-        event_code,
-        value,
-        time: evdev_rs::TimeVal {
-            tv_sec: 0,
-            tv_usec: 0,
-        },
-    };
-    info!("injecting event: {:?} {:?}", event_code, value);
-    l.write_event(&event)
-        .expect(&format!("failed to write event: {:?}", event));
-    send_syn(l)
-}
-
-fn send_stick(l: &UInputDevice, xy: (i32, i32)) {
-    let (x, y) = xy;
-    send_event(l, EventCode::EV_ABS(EV_ABS::ABS_X), x.into());
-    send_event(l, EventCode::EV_ABS(EV_ABS::ABS_Y), y.into());
-    send_syn(l);
 }
 
 fn log_event(event: &InputEvent) {
@@ -205,7 +170,7 @@ fn main() {
             futures::select! {
                 i = delayed_jump_fut => {
                     let _: std::time::Instant = i;
-                    send_event(&l, EventCode::EV_KEY(EV_KEY::BTN_WEST), 1);
+                    l.inject_key_syn(EV_KEY::BTN_WEST, 1).unwrap();
                 }
                 r = keeb_device.try_next() => {
                     let event = r.expect("keyboard event stream error")
@@ -221,110 +186,117 @@ fn main() {
                     }
                     match event_code {
                         // modifiers
-                        EventCode::EV_KEY(EV_KEY::KEY_A) => {
-                            state.m = if value == 1 { Mod::X } else { Mod::Null };
-                            send_stick(&l, state.coord())
-                        }
                         EventCode::EV_KEY(EV_KEY::KEY_SEMICOLON) => {
-                            state.m = if value == 1 { Mod::Y } else { Mod::Null };
-                            send_stick(&l, state.coord())
+                            state.m = if value == 1 { Mod::X } else { Mod::Null };
+                            l.inject_xy((EV_ABS::ABS_X, EV_ABS::ABS_Y), state.coord()).unwrap();
                         }
-                        EventCode::EV_KEY(EV_KEY::KEY_LEFTCTRL) => {
+                        EventCode::EV_KEY(EV_KEY::KEY_A) => {
+                            state.m = if value == 1 { Mod::Y } else { Mod::Null };
+                            l.inject_xy((EV_ABS::ABS_X, EV_ABS::ABS_Y), state.coord()).unwrap();
+                        }
+                        EventCode::EV_KEY(EV_KEY::KEY_TAB) => {
                             state.m = if value == 1 { Mod::Shield } else { Mod::Null };
-                            send_stick(&l, state.coord())
+                            l.inject_xy((EV_ABS::ABS_X, EV_ABS::ABS_Y), state.coord()).unwrap();
                         }
                         // left stick
                         EventCode::EV_KEY(EV_KEY::KEY_O) => {
                             if !(value == 0 && state.x == 1) {
                                 state.x = -value;
                             }
-                            send_stick(&l, state.coord())
+                            l.inject_xy((EV_ABS::ABS_X, EV_ABS::ABS_Y), state.coord()).unwrap();
                         }
                         EventCode::EV_KEY(EV_KEY::KEY_E) => {
                             if !(value == 0 && state.y == 1) {
                                 state.y = -value;
                             }
-                            send_stick(&l, state.coord())
+                            l.inject_xy((EV_ABS::ABS_X, EV_ABS::ABS_Y), state.coord()).unwrap();
                         }
                         EventCode::EV_KEY(EV_KEY::KEY_U) => {
                             if !(value == 0 && state.x == -1) {
                                 state.x = value;
                             }
-                            send_stick(&l, state.coord())
+                            l.inject_xy((EV_ABS::ABS_X, EV_ABS::ABS_Y), state.coord()).unwrap();
                         }
-                        EventCode::EV_KEY(EV_KEY::KEY_ENTER) => {
+                        EventCode::EV_KEY(EV_KEY::KEY_LEFTSHIFT) => {
                             if !(value == 0 && state.y == -1) {
                                 state.y = value;
                             }
-                            send_stick(&l, state.coord())
+                            l.inject_xy((EV_ABS::ABS_X, EV_ABS::ABS_Y), state.coord()).unwrap();
                         }
                         // dpad
                         EventCode::EV_KEY(EV_KEY::KEY_Q) => {
-                            send_event(&l, EventCode::EV_KEY(EV_KEY::BTN_DPAD_LEFT), value)
+                            l.inject_key_syn(EV_KEY::BTN_DPAD_LEFT, value).unwrap();
                         }
                         EventCode::EV_KEY(EV_KEY::KEY_J) => {
-                            send_event(&l, EventCode::EV_KEY(EV_KEY::BTN_DPAD_UP), value)
+                            l.inject_key_syn(EV_KEY::BTN_DPAD_UP, value).unwrap();
                         }
                         EventCode::EV_KEY(EV_KEY::KEY_K) => {
-                            send_event(&l, EventCode::EV_KEY(EV_KEY::BTN_DPAD_RIGHT), value)
+                            l.inject_key_syn(EV_KEY::BTN_DPAD_RIGHT, value).unwrap();
                         }
-                        EventCode::EV_KEY(EV_KEY::KEY_TAB) => {
-                            send_event(&l, EventCode::EV_KEY(EV_KEY::BTN_DPAD_DOWN), value)
+                        EventCode::EV_KEY(EV_KEY::KEY_LEFTCTRL) => {
+                            l.inject_key_syn(EV_KEY::BTN_DPAD_DOWN, value).unwrap();
                         }
                         // Start
                         EventCode::EV_KEY(EV_KEY::KEY_Y) => {
-                            send_event(&l, EventCode::EV_KEY(EV_KEY::BTN_START), value)
+                            l.inject_key_syn(EV_KEY::BTN_START, value).unwrap();
                         }
-
                         // X
-                        EventCode::EV_KEY(EV_KEY::KEY_S) if value == 1 => {
+                        EventCode::EV_KEY(EV_KEY::KEY_Z) if value == 1 => {
                             if jump_delay_ms == 0 {
-                                send_event(&l, EventCode::EV_KEY(EV_KEY::BTN_WEST), 1)
+                                l.inject_key_syn(EV_KEY::BTN_WEST, 1).unwrap();
                             } else {
                                 delayed_jump_fut.set(futures::FutureExt::fuse(async_io::Timer::after(std::time::Duration::from_millis(jump_delay_ms))));
                             }
                         }
-                        EventCode::EV_KEY(EV_KEY::KEY_S) if value == 0 => {
-                            send_event(&l, EventCode::EV_KEY(EV_KEY::BTN_WEST), 0)
+                        EventCode::EV_KEY(EV_KEY::KEY_Z) if value == 0 => {
+                            l.inject_key_syn(EV_KEY::BTN_WEST, 0).unwrap();
+                        }
+                        // Y
+                        EventCode::EV_KEY(EV_KEY::KEY_S) => {
+                            l.inject_key_syn(EV_KEY::BTN_NORTH, value).unwrap();
                         }
                         // Z
                         EventCode::EV_KEY(EV_KEY::KEY_N) => {
-                            send_event(&l, EventCode::EV_KEY(EV_KEY::BTN_Z), value)
-                        }
-                        // L
-                        EventCode::EV_KEY(EV_KEY::KEY_T) => {
-                            send_event(&l, EventCode::EV_ABS(EV_ABS::ABS_Z), value * MAX_TRIGGER)
-                        }
-                        // lightest shield possible
-                        EventCode::EV_KEY(EV_KEY::KEY_C) => {
-                            send_event(&l, EventCode::EV_ABS(EV_ABS::ABS_RZ), value * 49)
-                        }
-                        // medium shield
-                        EventCode::EV_KEY(EV_KEY::KEY_W) => {
-                            send_event(&l, EventCode::EV_ABS(EV_ABS::ABS_RZ), value * 92)
+                            l.inject_key_syn(EV_KEY::BTN_Z, value).unwrap();
                         }
                         // B
+                        EventCode::EV_KEY(EV_KEY::KEY_T) => {
+                            l.inject_key_syn(EV_KEY::BTN_EAST, value).unwrap();
+                        }
+                        // R
+                        EventCode::EV_KEY(EV_KEY::KEY_C) => {
+                            l.inject_abs_syn(EV_ABS::ABS_RZ, value * MAX_TRIGGER).unwrap();
+                        }
+                        // L
                         EventCode::EV_KEY(EV_KEY::KEY_H) => {
-                            send_event(&l, EventCode::EV_KEY(EV_KEY::BTN_EAST), value)
+                            l.inject_abs_syn(EV_ABS::ABS_Z, value * MAX_TRIGGER).unwrap();
+                        }
+                        // lightest shield possible
+                        EventCode::EV_KEY(EV_KEY::KEY_M) => {
+                            l.inject_abs_syn(EV_ABS::ABS_RZ, value * 49).unwrap();
+                        }
+                        // medium shield
+                        EventCode::EV_KEY(EV_KEY::KEY_G) => {
+                            l.inject_abs_syn(EV_ABS::ABS_RZ, value * 92).unwrap();
                         }
                         // A
-                        EventCode::EV_KEY(EV_KEY::KEY_BACKSPACE) => {
-                            send_event(&l, EventCode::EV_KEY(EV_KEY::BTN_SOUTH), value)
+                        EventCode::EV_KEY(EV_KEY::KEY_SPACE) => {
+                            state.c = if value == 1 { CMod::Right } else { CMod::Null };
+                            l.inject_xy((EV_ABS::ABS_X, EV_ABS::ABS_Y), state.coord()).unwrap();
+                            l.inject_key_syn(EV_KEY::BTN_SOUTH, value).unwrap();
                         }
                         // C-stick
                         EventCode::EV_KEY(EV_KEY::KEY_ESC) => {
-                            send_event(&l, EventCode::EV_ABS(EV_ABS::ABS_RY), value * P10000)
+                            l.inject_abs_syn(EV_ABS::ABS_RY, value * P10000).unwrap();
                         }
                         EventCode::EV_KEY(EV_KEY::KEY_RIGHT) => {
-                            send_event(&l, EventCode::EV_ABS(EV_ABS::ABS_RY), -value * P10000)
+                            l.inject_abs_syn(EV_ABS::ABS_RY, -value * P10000).unwrap();
                         }
-                        EventCode::EV_KEY(EV_KEY::KEY_LEFTSHIFT) => {
-                            send_event(&l, EventCode::EV_ABS(EV_ABS::ABS_RX), -value * P10000)
+                        EventCode::EV_KEY(EV_KEY::KEY_BACKSPACE) => {
+                            l.inject_abs_syn(EV_ABS::ABS_RX, -value * P10000).unwrap();
                         }
-                        EventCode::EV_KEY(EV_KEY::KEY_SPACE) => {
-                            state.c = if value == 1 { CMod::Right } else { CMod::Null };
-                            send_stick(&l, state.coord());
-                            send_event(&l, EventCode::EV_ABS(EV_ABS::ABS_RX), value * P10000);
+                        EventCode::EV_KEY(EV_KEY::KEY_RIGHTSHIFT) => {
+                            l.inject_abs_syn(EV_ABS::ABS_RX, value * P10000).unwrap();
                         }
                         _ => {}
                     }
