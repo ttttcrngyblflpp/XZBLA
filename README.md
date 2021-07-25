@@ -1,6 +1,7 @@
 # XZBLA
 
-Emulates gamepad inputs for the purpose of playing Super Mash Bros Melee on Linux with a keyboard.
+Emulates gamepad inputs for the purpose of playing Super Mash Bros Melee on
+Linux with a keyboard.
 
 The layout is legal according to the controller addendum used at most tournaments that allow
 box-style controllers. 
@@ -13,7 +14,7 @@ keyboards even if they have columnar stagger.
 
 ```
 +---+---+---+---+---+---+    +---+---+---+---+---+---+
-|   |   |   |   |   |   |    |   |LS | R |   |   |   |
+|   |   |   |   |   |St |    |   |LS | R |   |   |   |
 +---+---+---+---+---+---+    +---+---+---+---+---+---+
 |MS |MY |A-L|A-U|A-R|   |    |   | L | B | Z | Y |   |
 +---+---+---+---+---+---+    +---+---+---+---+---+---+
