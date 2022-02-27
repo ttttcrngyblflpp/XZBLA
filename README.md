@@ -5,23 +5,23 @@ sending input to Dolphin via pipe input.
 
 ## Summary of Rules
 
-2.1. (Accidental Side-B) While B is held, Mod-Y modifies left/right to be
+1. 2.1. (Accidental Side-B) While B is held, Mod-Y modifies left/right to be
   0.6625 rather than 0.3375.
-2.2. (SDI Nerf) After cardinal, adjacent diagonal, block the other adjacent diagonal for 4
+1. 2.2. (SDI Nerf) After cardinal, adjacent diagonal, block the other adjacent diagonal for 4
   frames.
-2.3. (Pivot Tilt Nerf) After cancelling a dash with a dash in the opposite direction (must be
+1. 2.3. (Pivot Tilt Nerf) After cancelling a dash with a dash in the opposite direction (must be
   executed within 15 frames), A will be disabled for 9 frames within up-tilt
   region and 4 frames within down-tilt region.
-5.1. SOCD is handled by overriding the previously-held direction.
-5.2. If one direction is released after holding opposing directions, the held
+1. 5.1. SOCD is handled by overriding the previously-held direction.
+1. 5.2. If one direction is released after holding opposing directions, the held
   direction will remain a no-op until it is released.
-5.3. If both left and right are held (neither up nor down is held), both
+1. 5.3. If both left and right are held (neither up nor down is held), both
 modifiers become no-ops.
-8.1. Holding mod-X with Up or Down then inputting C-left or C-right will produce
+1. 8.1. Holding mod-X with Up or Down then inputting C-left or C-right will produce
    C-stick co-ordinates of (0.8125, 0.2875).
-10.1. Light shield is 49/140, medium shield is 94/140.
-11.1. Holding down both modifiers turns C-stack cardinals into D-pad inputs.
-5. When both modifiers are held, analog stick modifications will not apply until
+1. 10.1. Light shield is 49/140, medium shield is 94/140.
+1. 11.1. Holding down both modifiers turns C-stack cardinals into D-pad inputs.
+1. 5. When both modifiers are held, analog stick modifications will not apply until
    one of the modifiers is released.
 
 |Modifier|X|Y|Diagonal|
