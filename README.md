@@ -1,77 +1,48 @@
-# XZBLA
+# tuxb0xx
 
-Emulates gamepad inputs for the purpose of playing Super Mash Bros Melee on
-Linux with a keyboard.
+Emulates b0xx on keyboard for Linux by listening for evdev keyboard events and
+sending input to Dolphin via pipe input.
 
-The layout is legal according to the controller addendum used at most tournaments that allow
-box-style controllers. 
+## Summary of Rules
 
-*Note* that the diagram assumes that the pinky rests on MX and X
-respectively, and the thumbs rest over Analog-Down and A respectively. On a
-keyboard with sufficient pinky columnar stagger, it wouldn't be necessary to
-move the pinky down one row; but this is not normally the case with most
-keyboards even if they have columnar stagger.
-
-```
-+---+---+---+---+---+---+    +---+---+---+---+---+---+
-|   |   |   |   |   |St |    |   |LS | R |   |   |   |
-+---+---+---+---+---+---+    +---+---+---+---+---+---+
-|MS |MY |A-L|A-U|A-R|   |    |   | L | B | Z | Y |   |
-+---+---+---+---+---+---+    +---+---+---+---+---+---+
-|   |MX |D-L|D-U|D-R|   |    |   |MS |   |   | X |   |
-+---+---+---+---+---+---+    +---+---+---+---+---+---+
-
-                +---+---+    +---+---+
-                |   |   |    |   |C-U|
-            +---+---+---+    +---+---+---+
-            |   |   |   |    |C-L|   |   |
-            |D-D|A-D+---+    +---+ A |C-R|
-            |   |   |   |    |C-D|   |   |
-            +---+---+---+    +---+---+---+
-```
-
-The layout is named after the right-hand buttons from pinky inwards. The layout is inspired by
-B0XX, with a few modifications:
-
-- The analog stick is not split across the two hands. This makes the layout a bit more intuitive and
-  easier to pick up, with no real downside.
-- Modifiers for the analog stick have been moved to the left pinky instead. This enables more
-  modifiers (up to 4 can be comfortably used, currently only 3 are defined), and also adheres to the
-  philosophy of having the fingers rolling from pinky to thumb, since it's often the case that one
-  wants to ensure that a modifier is activated before inputting the directional buttons.
-- Of the buttons on the right hand, jump must be on the pinky as jump needs to
-  be followed by grab, air dodge, and shine with strict timing requirements. Of
-  these, air dodge and B are used more frequently, so they are given the two
-  stronger fingers.
-
-The analog stick co-ordinates are as follows:
+2.1. (Accidental Side-B) While B is held, Mod-Y modifies left/right to be
+  0.6625 rather than 0.3375.
+2.2. (SDI Nerf) After cardinal, adjacent diagonal, block the other adjacent diagonal for 4
+  frames.
+2.3. (Pivot Tilt Nerf) After cancelling a dash with a dash in the opposite direction (must be
+  executed within 15 frames), A will be disabled for 9 frames within up-tilt
+  region and 4 frames within down-tilt region.
+5.1. SOCD is handled by overriding the previously-held direction.
+5.2. If one direction is released after holding opposing directions, the held
+  direction will remain a no-op until it is released.
+5.3. If both left and right are held (neither up nor down is held), both
+modifiers become no-ops.
+8.1. Holding mod-X with Up or Down then inputting C-left or C-right will produce
+   C-stick co-ordinates of (0.8125, 0.2875).
+10.1. Light shield is 49/140, medium shield is 94/140.
+11.1. Holding down both modifiers turns C-stack cardinals into D-pad inputs.
+5. When both modifiers are held, analog stick modifications will not apply until
+   one of the modifiers is released.
 
 |Modifier|X|Y|Diagonal|
 |---|---|---|---|
-|X|0.7375|0.6500|(0.7375, 0.3125)/23&deg;|
-|X+A|||(0.8250, 0.5625)/34.3&deg;|
-|Shield|0.6750|0.6500|(0.6750, 0.6500)/43.9&deg;|
-|Null|1.0000|1.0000|(0.7000, 0.7000)/45&deg;|
-|Y+A|||(0.5625, 0.8250)/55.7&deg;|
-|Y|0.2875|0.6500|(0.3000, 0.7000)/66.8&deg;|
-
-MX is used to input tilt-attacks (including angling ftilt up or down) and shallow wavedash/upB
-angles. MY is used for steep angles, tilting the shield horizontally for shield dropping, and
-turnaround neutral-B. Mod-Shield is used to tilt the shield maximally in each axis.
-
-A modifies diagonals already modified with MX or MY by bringing them halfway towards the
-diagonal. It is intended for finer-grained upB angles.
-
-## Illegal Features
-
-The `jump_delay_ms` argument is used to add a delay between when the corresponding key is pressed
-and when the X button is input. This makes short hop timings much more lenient (which are
-unnecessarily difficult on mechanical keyboards compared to controller and makes characters with a
-3-frame jumpsquat almost completely unviable) at the cost of a fixed amount of input lag. This
-feature is illegal according to the controller addendum because it is a macro which induces input on
-a future frame than when the physical button is actuated.
+|X          |0.6625|0.5375|(0.7375, 0.3125)|
+|X+C-Down   |      |      |(0.7000, 0.3625)|
+|X+C-Left   |      |      |(0.7875, 0.4875)|
+|X+C-Up     |      |      |(0.7000, 0.5125)|
+|X+C-Right  |      |      |(0.6125, 0.5250)|
+|Y+C-Right  |      |      |(0.6375, 0.7625)|
+|Y+C-Up     |      |      |(0.5125, 0.7000)|
+|Y+C-Left   |      |      |(0.4875, 0.7875)|
+|Y+C-Down   |      |      |(0.3625, 0.7000)|
+|Y          |0.3375|0.7375|(0.3125, 0.7375)|
+|[LR]+X     |0.6625|0.5375|(0.6375, 0.3750)|
+|[LR]       |      |      |(0.7000, 0.6875)|
+|[LR]+Y(Q12)|      |      |(0.4750, 0.8750)|
+|[LR]+Y(Q34)|      |      |(0.5000, 0.8500)|
+|C-stick    |1.0000|1.0000|(0.5250, 0.8500)|
 
 ## Known Bugs
 
-- [ ] It seems impossible to have the analog stick co-ordinates perfect due to the way dolphin maps
+- [x] It seems impossible to have the analog stick co-ordinates perfect due to the way dolphin maps
   a uinput device's inputs to a gamecube controller's raw input values.

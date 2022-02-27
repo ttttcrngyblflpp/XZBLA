@@ -1,9 +1,9 @@
 #![deny(unused_results)]
 
+use std::io::Write as _;
+
 use argh::FromArgs;
-use evdev_rs::enums::{EventCode, InputProp, EV_ABS, EV_KEY};
-use evdev_rs::{DeviceWrapper as _, InputEvent, UInputDevice};
-use evdev_utils::{AsyncDevice, DeviceWrapperExt as _, UInputExt as _};
+use evdev_utils::AsyncDevice;
 use futures::{StreamExt as _, TryStreamExt as _};
 use log::{debug, info, trace};
 
@@ -13,13 +13,10 @@ struct Args {
     /// log level
     #[argh(option, short = 'l', default = "log::LevelFilter::Info")]
     log_level: log::LevelFilter,
-
-    /// number of frames to delay actuation of X when the corresponding key is pressed
-    #[argh(option, short = 'j', default = "0")]
-    jump_delay_ms: u64,
 }
 
-fn log_event(event: &InputEvent) {
+fn log_event(event: &evdev_rs::InputEvent) {
+    use evdev_rs::enums::EventCode;
     match event.event_code {
         EventCode::EV_MSC(_) | EventCode::EV_SYN(_) | EventCode::EV_REL(_) => {
             trace!("event: {:?}", event)
@@ -28,91 +25,368 @@ fn log_event(event: &InputEvent) {
     }
 }
 
-const MAX_TRIGGER: i32 = 140;
-
-const P2875: i32 = 23;
-const P3000: i32 = 24;
-const P3125: i32 = 25;
-const P5625: i32 = 45;
-const P6500: i32 = 52;
-const P6750: i32 = 54;
-const P7000: i32 = 56;
-const P7375: i32 = 59;
-const P8250: i32 = 66;
-const P10000: i32 = 80;
-
-const STICK_ABSINFO: libc::input_absinfo = libc::input_absinfo {
-    value: 0,
-    minimum: -127,
-    maximum: 127,
-    fuzz: 0,
-    flat: 0,
-    resolution: 0,
-};
-
-const TRIGGER_ABSINFO: libc::input_absinfo = libc::input_absinfo {
-    value: 0,
-    minimum: 0,
-    maximum: 255,
-    fuzz: 0,
-    flat: 0,
-    resolution: 0,
-};
-
-#[derive(Clone, Copy)]
-enum Mod {
-    Null,
+enum B0xxButton {
+    A,
+    B,
+    L,
+    R,
     X,
     Y,
-    Shield,
-}
-
-#[derive(Clone, Copy, Debug)]
-enum CMod {
-    Null,
+    Z,
+    LS,
+    MS,
+    Start,
+    Up,
+    Down,
+    Left,
     Right,
+    CUp,
+    CDown,
+    CLeft,
+    CRight,
+    ModX,
+    ModY,
 }
 
-#[derive(Clone, Copy)]
-struct State {
-    x: i32,
-    y: i32,
-    m: Mod,
-    c: CMod,
+type Sign = bounded_integer::BoundedI8<-1, 1>;
+const NEGATIVE: Sign = unsafe { Sign::new_unchecked(-1) };
+const ZERO: Sign = unsafe { Sign::new_unchecked(0) };
+const POSITIVE: Sign = unsafe { Sign::new_unchecked(1) };
+
+enum GCButton {
+    A,
+    B,
+    L,
+    R,
+    X,
+    Y,
+    Z,
+    Start,
 }
 
-impl State {
-    fn coord(&self) -> (i32, i32) {
-        let &State { x, y, m, c } = self;
-        match m {
-            Mod::Null => {
-                if x != 0 && y != 0 {
-                    (x * P7000, y * P7000)
-                } else {
-                    (x * P10000, y * P10000)
-                }
-            }
-            Mod::X => match c {
-                CMod::Right if x != 0 && y != 0 => (x * P8250, y * P5625),
-                CMod::Right | CMod::Null => (x * P7375, y * if x == 0 { P6500 } else { P3125 }),
-            },
-            Mod::Y => match c {
-                CMod::Right if x != 0 && y != 0 => (x * P5625, y * P8250),
-                CMod::Right | CMod::Null => (
-                    x * if y == 0 { P2875 } else { P3000 },
-                    y * if x == 0 { P6500 } else { P7000 },
-                ),
-            },
-            Mod::Shield => (x * P6750, y * P6500),
+impl GCButton {
+    fn pipe_input_name(&self) -> &'static str {
+        match *self {
+            Self::A => "A",
+            Self::B => "B",
+            Self::L => "L",
+            Self::R => "R",
+            Self::X => "X",
+            Self::Y => "Y",
+            Self::Z => "Z",
+            Self::Start => "START",
         }
     }
 }
 
+enum GCStick {
+    A,
+    C,
+}
+
+enum GCTrigger {
+    L,
+    R,
+}
+
+const ANALOG_MAX: i8 = 80;
+const ANALOG_MIN: i8 = -80;
+type I8analog = bounded_integer::BoundedI8<ANALOG_MIN, ANALOG_MAX>;
+const I00000: I8analog = unsafe { I8analog::new_unchecked(0) };
+const I00125: I8analog = unsafe { I8analog::new_unchecked(1) };
+const I00250: I8analog = unsafe { I8analog::new_unchecked(2) };
+const I00375: I8analog = unsafe { I8analog::new_unchecked(3) };
+const I00500: I8analog = unsafe { I8analog::new_unchecked(4) };
+const I00625: I8analog = unsafe { I8analog::new_unchecked(5) };
+const I00750: I8analog = unsafe { I8analog::new_unchecked(6) };
+const I00875: I8analog = unsafe { I8analog::new_unchecked(7) };
+const I01000: I8analog = unsafe { I8analog::new_unchecked(8) };
+const I01125: I8analog = unsafe { I8analog::new_unchecked(9) };
+const I01250: I8analog = unsafe { I8analog::new_unchecked(10) };
+const I01375: I8analog = unsafe { I8analog::new_unchecked(11) };
+const I01500: I8analog = unsafe { I8analog::new_unchecked(12) };
+const I01625: I8analog = unsafe { I8analog::new_unchecked(13) };
+const I01750: I8analog = unsafe { I8analog::new_unchecked(14) };
+const I01875: I8analog = unsafe { I8analog::new_unchecked(15) };
+const I02000: I8analog = unsafe { I8analog::new_unchecked(16) };
+const I02125: I8analog = unsafe { I8analog::new_unchecked(17) };
+const I02250: I8analog = unsafe { I8analog::new_unchecked(18) };
+const I02375: I8analog = unsafe { I8analog::new_unchecked(19) };
+const I02500: I8analog = unsafe { I8analog::new_unchecked(20) };
+const I02625: I8analog = unsafe { I8analog::new_unchecked(21) };
+const I02750: I8analog = unsafe { I8analog::new_unchecked(22) };
+const I02875: I8analog = unsafe { I8analog::new_unchecked(23) };
+const I03000: I8analog = unsafe { I8analog::new_unchecked(24) };
+const I03125: I8analog = unsafe { I8analog::new_unchecked(25) };
+const I03250: I8analog = unsafe { I8analog::new_unchecked(26) };
+const I03375: I8analog = unsafe { I8analog::new_unchecked(27) };
+const I03500: I8analog = unsafe { I8analog::new_unchecked(28) };
+const I03625: I8analog = unsafe { I8analog::new_unchecked(29) };
+const I03750: I8analog = unsafe { I8analog::new_unchecked(30) };
+const I03875: I8analog = unsafe { I8analog::new_unchecked(31) };
+const I04000: I8analog = unsafe { I8analog::new_unchecked(32) };
+const I04125: I8analog = unsafe { I8analog::new_unchecked(33) };
+const I04250: I8analog = unsafe { I8analog::new_unchecked(34) };
+const I04375: I8analog = unsafe { I8analog::new_unchecked(35) };
+const I04500: I8analog = unsafe { I8analog::new_unchecked(36) };
+const I04625: I8analog = unsafe { I8analog::new_unchecked(37) };
+const I04750: I8analog = unsafe { I8analog::new_unchecked(38) };
+const I04875: I8analog = unsafe { I8analog::new_unchecked(39) };
+const I05000: I8analog = unsafe { I8analog::new_unchecked(40) };
+const I05125: I8analog = unsafe { I8analog::new_unchecked(41) };
+const I05250: I8analog = unsafe { I8analog::new_unchecked(42) };
+const I05375: I8analog = unsafe { I8analog::new_unchecked(43) };
+const I05500: I8analog = unsafe { I8analog::new_unchecked(44) };
+const I05625: I8analog = unsafe { I8analog::new_unchecked(45) };
+const I05750: I8analog = unsafe { I8analog::new_unchecked(46) };
+const I05875: I8analog = unsafe { I8analog::new_unchecked(47) };
+const I06000: I8analog = unsafe { I8analog::new_unchecked(48) };
+const I06125: I8analog = unsafe { I8analog::new_unchecked(49) };
+const I06250: I8analog = unsafe { I8analog::new_unchecked(50) };
+const I06375: I8analog = unsafe { I8analog::new_unchecked(51) };
+const I06500: I8analog = unsafe { I8analog::new_unchecked(52) };
+const I06625: I8analog = unsafe { I8analog::new_unchecked(53) };
+const I06750: I8analog = unsafe { I8analog::new_unchecked(54) };
+const I06875: I8analog = unsafe { I8analog::new_unchecked(55) };
+const I07000: I8analog = unsafe { I8analog::new_unchecked(56) };
+const I07125: I8analog = unsafe { I8analog::new_unchecked(57) };
+const I07250: I8analog = unsafe { I8analog::new_unchecked(58) };
+const I07375: I8analog = unsafe { I8analog::new_unchecked(59) };
+const I07500: I8analog = unsafe { I8analog::new_unchecked(60) };
+const I07625: I8analog = unsafe { I8analog::new_unchecked(61) };
+const I07750: I8analog = unsafe { I8analog::new_unchecked(62) };
+const I07875: I8analog = unsafe { I8analog::new_unchecked(63) };
+const I08000: I8analog = unsafe { I8analog::new_unchecked(64) };
+const I08125: I8analog = unsafe { I8analog::new_unchecked(65) };
+const I08250: I8analog = unsafe { I8analog::new_unchecked(66) };
+const I08375: I8analog = unsafe { I8analog::new_unchecked(67) };
+const I08500: I8analog = unsafe { I8analog::new_unchecked(68) };
+const I08625: I8analog = unsafe { I8analog::new_unchecked(69) };
+const I08750: I8analog = unsafe { I8analog::new_unchecked(70) };
+const I08875: I8analog = unsafe { I8analog::new_unchecked(71) };
+const I09000: I8analog = unsafe { I8analog::new_unchecked(72) };
+const I09125: I8analog = unsafe { I8analog::new_unchecked(73) };
+const I09250: I8analog = unsafe { I8analog::new_unchecked(74) };
+const I09375: I8analog = unsafe { I8analog::new_unchecked(75) };
+const I09500: I8analog = unsafe { I8analog::new_unchecked(76) };
+const I09625: I8analog = unsafe { I8analog::new_unchecked(77) };
+const I09750: I8analog = unsafe { I8analog::new_unchecked(78) };
+const I09875: I8analog = unsafe { I8analog::new_unchecked(79) };
+const I10000: I8analog = unsafe { I8analog::new_unchecked(80) };
+
+const TRIGGER_MAX: u8 = 140;
+type U8trigger = bounded_integer::BoundedU8<0, TRIGGER_MAX>;
+
+enum Output {
+    Button(GCButton, bool),
+    Stick(GCStick, I8analog, I8analog),
+    Trigger(GCTrigger, U8trigger),
+}
+
+struct B0xxEvent {
+    time: libc::timeval,
+    b0xx_btn: B0xxButton,
+    pressed: bool,
+}
+
+struct Remapper;
+
+impl Remapper {
+    fn keyboard_to_b0xx(&self, c: evdev_rs::enums::EventCode) -> Option<B0xxButton> {
+        use evdev_rs::enums::{EventCode, EV_KEY};
+        match c {
+            EventCode::EV_KEY(EV_KEY::KEY_O) => Some(B0xxButton::Left),
+            EventCode::EV_KEY(EV_KEY::KEY_E) => Some(B0xxButton::Down),
+            EventCode::EV_KEY(EV_KEY::KEY_U) => Some(B0xxButton::Right),
+            EventCode::EV_KEY(EV_KEY::KEY_Z) => Some(B0xxButton::Up),
+            EventCode::EV_KEY(EV_KEY::KEY_LEFTSHIFT) => Some(B0xxButton::ModX),
+            EventCode::EV_KEY(EV_KEY::KEY_LEFTCTRL) => Some(B0xxButton::ModY),
+            EventCode::EV_KEY(EV_KEY::KEY_SPACE) => Some(B0xxButton::A),
+            EventCode::EV_KEY(EV_KEY::KEY_H) => Some(B0xxButton::B),
+            EventCode::EV_KEY(EV_KEY::KEY_Y) | EventCode::EV_KEY(EV_KEY::KEY_F) => {
+                Some(B0xxButton::Start)
+            }
+            _ => None,
+        }
+    }
+
+    fn evdev_to_b0xx(
+        &self,
+        evdev_rs::InputEvent {
+            time,
+            event_code,
+            value,
+        }: evdev_rs::InputEvent,
+    ) -> Option<B0xxEvent> {
+        if value == 2 {
+            return None;
+        }
+        Some(B0xxEvent {
+            time: time.as_raw(),
+            pressed: value == 1,
+            b0xx_btn: self.keyboard_to_b0xx(event_code)?,
+        })
+    }
+}
+
+bitflags::bitflags! {
+    #[derive(Default)]
+    struct Digital: u32 {
+        const A = 0x00001;
+        const B = 0x00002;
+        const L = 0x00004;
+        const R = 0x00008;
+        const X = 0x00010;
+        const Y = 0x00020;
+        const Z = 0x00040;
+        const LS = 0x00080;
+        const MS = 0x00100;
+        const START = 0x00200;
+        const MOD_X = 0x00400;
+        const MOD_Y = 0x00800;
+    }
+}
+
+bitflags::bitflags! {
+    #[derive(Default)]
+    struct Axis: u8 {
+        const P = 0x1;
+        const N = 0x2;
+    }
+}
+
+impl Axis {
+    fn sign(&self) -> Option<bool> {
+        match *self {
+            Self::P => Some(true),
+            Self::N => Some(false),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Default)]
+struct Main {
+    digital: Digital,
+    ax: Axis,
+    ay: Axis,
+    cx: Axis,
+    cy: Axis,
+}
+
+impl Main {
+    fn b0xx_to_gc(
+        &mut self,
+        B0xxEvent {
+            time: _,
+            b0xx_btn,
+            pressed,
+        }: B0xxEvent,
+    ) -> Output {
+        match b0xx_btn {
+            B0xxButton::A => {
+                self.digital.set(Digital::A, pressed);
+                return Output::Button(GCButton::A, pressed);
+            }
+            B0xxButton::B => {
+                self.digital.set(Digital::B, pressed);
+                return Output::Button(GCButton::B, pressed);
+            }
+            B0xxButton::Start => {
+                self.digital.set(Digital::START, pressed);
+                return Output::Button(GCButton::Start, pressed);
+            }
+            B0xxButton::Up => self.ay.set(Axis::P, pressed),
+            B0xxButton::Down => self.ay.set(Axis::N, pressed),
+            B0xxButton::Left => self.ax.set(Axis::N, pressed),
+            B0xxButton::Right => self.ax.set(Axis::P, pressed),
+            B0xxButton::ModX => self.digital.set(Digital::MOD_X, pressed),
+            B0xxButton::ModY => self.digital.set(Digital::MOD_Y, pressed),
+            _ => {}
+        }
+        match (self.ax.sign(), self.ay.sign()) {
+            (None, None) => Output::Stick(GCStick::A, I00000, I00000),
+            (Some(x), None) => {
+                if self.digital.contains(Digital::MOD_X) {
+                    Output::Stick(GCStick::A, if x { I06625 } else { -I06625 }, I00000)
+                } else if self.digital.contains(Digital::MOD_Y) {
+                    Output::Stick(GCStick::A, if x { I03375 } else { -I03375 }, I00000)
+                } else {
+                    Output::Stick(GCStick::A, if x { I10000 } else { -I10000 }, I00000)
+                }
+            }
+            (None, Some(y)) => {
+                if self.digital.contains(Digital::MOD_X) {
+                    Output::Stick(GCStick::A, I00000, if y { I05375 } else { -I05375 })
+                } else if self.digital.contains(Digital::MOD_Y) {
+                    Output::Stick(GCStick::A, I00000, if y { I07375 } else { -I07375 })
+                } else {
+                    Output::Stick(GCStick::A, I00000, if y { I10000 } else { -I10000 })
+                }
+            }
+            (Some(x), Some(y)) => {
+                if self.digital.contains(Digital::MOD_X) {
+                    Output::Stick(
+                        GCStick::A,
+                        if x { I07375 } else { -I07375 },
+                        if y { I03125 } else { -I03125 },
+                    )
+                } else if self.digital.contains(Digital::MOD_Y) {
+                    Output::Stick(
+                        GCStick::A,
+                        if x { I03125 } else { -I03125 },
+                        if y { I07375 } else { -I07375 },
+                    )
+                } else {
+                    Output::Stick(
+                        GCStick::A,
+                        if x { I07000 } else { -I07000 },
+                        if y { I07000 } else { -I07000 },
+                    )
+                }
+            }
+        }
+    }
+}
+
+struct OutputSink {
+    file: std::fs::File,
+}
+
+impl OutputSink {
+    fn send(&mut self, o: Output) -> anyhow::Result<()> {
+        let cmd = match o {
+            Output::Button(btn, pressed) => {
+                if pressed {
+                    Some(format!("PRESS {}\n", btn.pipe_input_name()))
+                } else {
+                    Some(format!("RELEASE {}\n", btn.pipe_input_name()))
+                }
+            }
+            Output::Stick(stick, x, y) => match stick {
+                GCStick::A => {
+                    let x = x.get() as f64;
+                    let y = y.get() as f64;
+                    Some(format!(
+                        "SET MAIN {} {}\n",
+                        0.5 + 0.5 * if x < 0.0 { x / 128f64 } else { x / 127f64 },
+                        0.5 + 0.5 * if y < 0.0 { y / 128f64 } else { y / 127f64 },
+                    ))
+                }
+                GCStick::C => None,
+            },
+            Output::Trigger(_trigger, _v) => None,
+        };
+        if let Some(cmd) = cmd {
+            debug!("writing: {}", cmd);
+            let _ = self.file.write(cmd.as_bytes())?;
+        }
+        Ok(())
+    }
+}
+
 fn main() {
-    let Args {
-        log_level,
-        jump_delay_ms,
-    } = argh::from_env();
+    let Args { log_level } = argh::from_env();
 
     simple_logger::SimpleLogger::new()
         .with_level(log::LevelFilter::Warn)
@@ -121,185 +395,34 @@ fn main() {
         .expect("failed to initialize logger");
 
     let keeb_path = futures::executor::block_on(evdev_utils::identify_keyboard())
-        .expect("failed to identify keyboard and mouse");
+        .expect("failed to identify keyboard");
     info!("found keyboard {:?}", keeb_path);
-
-    let uninit_device = evdev_rs::UninitDevice::new().expect("failed to create uninit device");
-    uninit_device.set_name("hako");
-    uninit_device.set_bustype(3);
-    uninit_device
-        .enable(&InputProp::INPUT_PROP_BUTTONPAD)
-        .expect("enable buttonpad pty");
-    uninit_device
-        .enable_gamepad()
-        .expect("failed to enable gamepad functionality");
-    uninit_device
-        .enable_event_code(&EventCode::EV_ABS(EV_ABS::ABS_X), Some(&STICK_ABSINFO))
-        .expect("failed to enable ABS axis");
-    uninit_device
-        .enable_event_code(&EventCode::EV_ABS(EV_ABS::ABS_Y), Some(&STICK_ABSINFO))
-        .expect("failed to enable ABS axis");
-    uninit_device
-        .enable_event_code(&EventCode::EV_ABS(EV_ABS::ABS_RX), Some(&STICK_ABSINFO))
-        .expect("failed to enable ABS axis");
-    uninit_device
-        .enable_event_code(&EventCode::EV_ABS(EV_ABS::ABS_RY), Some(&STICK_ABSINFO))
-        .expect("failed to enable ABS axis");
-    uninit_device
-        .enable_event_code(&EventCode::EV_ABS(EV_ABS::ABS_Z), Some(&TRIGGER_ABSINFO))
-        .expect("failed to enable ABS trigger");
-    uninit_device
-        .enable_event_code(&EventCode::EV_ABS(EV_ABS::ABS_RZ), Some(&TRIGGER_ABSINFO))
-        .expect("failed to enable ABS trigger");
-    let l = UInputDevice::create_from_device(&uninit_device).expect("create uinput device");
 
     let mut keeb_device = AsyncDevice::new(keeb_path)
         .expect("failed to create keyboard device")
         .fuse();
-    let mut state = State {
-        m: Mod::Null,
-        c: CMod::Null,
-        x: 0,
-        y: 0,
-    };
 
-    let delayed_jump_fut = futures::future::Fuse::terminated();
-    futures::pin_mut!(delayed_jump_fut);
+    let remapper = Remapper;
+    let mut main = Main::default();
+    let mut sink = OutputSink {
+        file: std::fs::OpenOptions::new()
+            .write(true)
+            .append(true)
+            .open("/home/tone/.config/SlippiOnline/Pipes/pipe")
+            .expect("failed to open pipe"),
+    };
     let fut = async {
         loop {
             futures::select! {
-                i = delayed_jump_fut => {
-                    let _: std::time::Instant = i;
-                    l.inject_key_syn(EV_KEY::BTN_WEST, 1).unwrap();
-                }
                 r = keeb_device.try_next() => {
                     let event = r.expect("keyboard event stream error")
                         .expect("keyboard event stream ended unexpectedly");
                     log_event(&event);
-                    let InputEvent {
-                        time: _,
-                        event_code,
-                        value,
-                    } = event;
-                    if value == 2 {
-                        continue;
-                    }
-                    match event_code {
-                        // modifiers
-                        EventCode::EV_KEY(EV_KEY::KEY_SEMICOLON) => {
-                            state.m = if value == 1 { Mod::X } else { Mod::Null };
-                            l.inject_xy((EV_ABS::ABS_X, EV_ABS::ABS_Y), state.coord()).unwrap();
-                        }
-                        EventCode::EV_KEY(EV_KEY::KEY_A) => {
-                            state.m = if value == 1 { Mod::Y } else { Mod::Null };
-                            l.inject_xy((EV_ABS::ABS_X, EV_ABS::ABS_Y), state.coord()).unwrap();
-                        }
-                        EventCode::EV_KEY(EV_KEY::KEY_TAB) => {
-                            state.m = if value == 1 { Mod::Shield } else { Mod::Null };
-                            l.inject_xy((EV_ABS::ABS_X, EV_ABS::ABS_Y), state.coord()).unwrap();
-                        }
-                        // left stick
-                        EventCode::EV_KEY(EV_KEY::KEY_O) => {
-                            if !(value == 0 && state.x == 1) {
-                                state.x = -value;
-                            }
-                            l.inject_xy((EV_ABS::ABS_X, EV_ABS::ABS_Y), state.coord()).unwrap();
-                        }
-                        EventCode::EV_KEY(EV_KEY::KEY_E) => {
-                            if !(value == 0 && state.y == 1) {
-                                state.y = -value;
-                            }
-                            l.inject_xy((EV_ABS::ABS_X, EV_ABS::ABS_Y), state.coord()).unwrap();
-                        }
-                        EventCode::EV_KEY(EV_KEY::KEY_U) => {
-                            if !(value == 0 && state.x == -1) {
-                                state.x = value;
-                            }
-                            l.inject_xy((EV_ABS::ABS_X, EV_ABS::ABS_Y), state.coord()).unwrap();
-                        }
-                        EventCode::EV_KEY(EV_KEY::KEY_LEFTSHIFT) => {
-                            if !(value == 0 && state.y == -1) {
-                                state.y = value;
-                            }
-                            l.inject_xy((EV_ABS::ABS_X, EV_ABS::ABS_Y), state.coord()).unwrap();
-                        }
-                        // dpad
-                        EventCode::EV_KEY(EV_KEY::KEY_Q) => {
-                            l.inject_key_syn(EV_KEY::BTN_DPAD_LEFT, value).unwrap();
-                        }
-                        EventCode::EV_KEY(EV_KEY::KEY_J) => {
-                            l.inject_key_syn(EV_KEY::BTN_DPAD_UP, value).unwrap();
-                        }
-                        EventCode::EV_KEY(EV_KEY::KEY_K) => {
-                            l.inject_key_syn(EV_KEY::BTN_DPAD_RIGHT, value).unwrap();
-                        }
-                        EventCode::EV_KEY(EV_KEY::KEY_LEFTCTRL) => {
-                            l.inject_key_syn(EV_KEY::BTN_DPAD_DOWN, value).unwrap();
-                        }
-                        // Start
-                        EventCode::EV_KEY(EV_KEY::KEY_Y) => {
-                            l.inject_key_syn(EV_KEY::BTN_START, value).unwrap();
-                        }
-                        // X
-                        EventCode::EV_KEY(EV_KEY::KEY_Z) if value == 1 => {
-                            if jump_delay_ms == 0 {
-                                l.inject_key_syn(EV_KEY::BTN_WEST, 1).unwrap();
-                            } else {
-                                delayed_jump_fut.set(futures::FutureExt::fuse(async_io::Timer::after(std::time::Duration::from_millis(jump_delay_ms))));
-                            }
-                        }
-                        EventCode::EV_KEY(EV_KEY::KEY_Z) if value == 0 => {
-                            l.inject_key_syn(EV_KEY::BTN_WEST, 0).unwrap();
-                        }
-                        // Y
-                        EventCode::EV_KEY(EV_KEY::KEY_S) => {
-                            l.inject_key_syn(EV_KEY::BTN_NORTH, value).unwrap();
-                        }
-                        // Z
-                        EventCode::EV_KEY(EV_KEY::KEY_N) => {
-                            l.inject_key_syn(EV_KEY::BTN_Z, value).unwrap();
-                        }
-                        // B
-                        EventCode::EV_KEY(EV_KEY::KEY_T) => {
-                            l.inject_key_syn(EV_KEY::BTN_EAST, value).unwrap();
-                        }
-                        // R
-                        EventCode::EV_KEY(EV_KEY::KEY_C) => {
-                            l.inject_abs_syn(EV_ABS::ABS_RZ, value * MAX_TRIGGER).unwrap();
-                        }
-                        // L
-                        EventCode::EV_KEY(EV_KEY::KEY_H) => {
-                            l.inject_abs_syn(EV_ABS::ABS_Z, value * MAX_TRIGGER).unwrap();
-                        }
-                        // lightest shield possible
-                        EventCode::EV_KEY(EV_KEY::KEY_M) => {
-                            l.inject_abs_syn(EV_ABS::ABS_RZ, value * 49).unwrap();
-                        }
-                        // medium shield
-                        EventCode::EV_KEY(EV_KEY::KEY_G) => {
-                            l.inject_abs_syn(EV_ABS::ABS_RZ, value * 92).unwrap();
-                        }
-                        // A
-                        EventCode::EV_KEY(EV_KEY::KEY_SPACE) => {
-                            state.c = if value == 1 { CMod::Right } else { CMod::Null };
-                            l.inject_xy((EV_ABS::ABS_X, EV_ABS::ABS_Y), state.coord()).unwrap();
-                            l.inject_key_syn(EV_KEY::BTN_SOUTH, value).unwrap();
-                        }
-                        // C-stick
-                        EventCode::EV_KEY(EV_KEY::KEY_ESC) => {
-                            l.inject_abs_syn(EV_ABS::ABS_RY, value * P10000).unwrap();
-                        }
-                        EventCode::EV_KEY(EV_KEY::KEY_RIGHT) => {
-                            l.inject_abs_syn(EV_ABS::ABS_RY, -value * P10000).unwrap();
-                        }
-                        EventCode::EV_KEY(EV_KEY::KEY_BACKSPACE) => {
-                            l.inject_abs_syn(EV_ABS::ABS_RX, -value * P10000).unwrap();
-                        }
-                        EventCode::EV_KEY(EV_KEY::KEY_RIGHTSHIFT) => {
-                            l.inject_abs_syn(EV_ABS::ABS_RX, value * P10000).unwrap();
-                        }
-                        _ => {}
-                    }
+                    let e = match remapper.evdev_to_b0xx(event) {
+                        Some(e) => e,
+                        None => continue,
+                    };
+                    sink.send(main.b0xx_to_gc(e)).expect("failed to write to pipe");
                 }
             }
         }

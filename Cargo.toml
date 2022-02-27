@@ -1,12 +1,15 @@
 [package]
-name = "xzbla"
+name = "tuxb0xx"
 version = "0.1.0"
 authors = ["tone <tony.y.gong@gmail.com>"]
-edition = "2018"
+edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+"anyhow" = "1.0"
+"bitflags" = "1.3"
+"bounded-integer" = { version = "0.5", features = ["types", "num-traits02"] }
 "evdev-rs" = "0.5"
 "argh" = "0.1"
 "log" = "0.4"
