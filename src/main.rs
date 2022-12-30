@@ -167,87 +167,92 @@ bounded_integer::bounded_integer! {
     enum Analog { -80..=80 }
 }
 
-const P00000: Analog = Analog::Z;
-const P00125: Analog = Analog::P1;
-const P00250: Analog = Analog::P2;
-const P00375: Analog = Analog::P3;
-const P00500: Analog = Analog::P4;
-const P00625: Analog = Analog::P5;
-const P00750: Analog = Analog::P6;
-const P00875: Analog = Analog::P7;
-const P01000: Analog = Analog::P8;
-const P01125: Analog = Analog::P9;
-const P01250: Analog = Analog::P10;
-const P01375: Analog = Analog::P11;
-const P01500: Analog = Analog::P12;
-const P01625: Analog = Analog::P13;
-const P01750: Analog = Analog::P14;
-const P01875: Analog = Analog::P15;
-const P02000: Analog = Analog::P16;
-const P02125: Analog = Analog::P17;
-const P02250: Analog = Analog::P18;
-const P02375: Analog = Analog::P19;
-const P02500: Analog = Analog::P20;
-const P02625: Analog = Analog::P21;
-const P02750: Analog = Analog::P22;
-const P02875: Analog = Analog::P23;
-const P03000: Analog = Analog::P24;
-const P03125: Analog = Analog::P25;
-const P03250: Analog = Analog::P26;
-const P03375: Analog = Analog::P27;
-const P03500: Analog = Analog::P28;
-const P03625: Analog = Analog::P29;
-const P03750: Analog = Analog::P30;
-const P03875: Analog = Analog::P31;
-const P04000: Analog = Analog::P32;
-const P04125: Analog = Analog::P33;
-const P04250: Analog = Analog::P34;
-const P04375: Analog = Analog::P35;
-const P04500: Analog = Analog::P36;
-const P04625: Analog = Analog::P37;
-const P04750: Analog = Analog::P38;
-const P04875: Analog = Analog::P39;
-const P05000: Analog = Analog::P40;
-const P05125: Analog = Analog::P41;
-const P05250: Analog = Analog::P42;
-const P05375: Analog = Analog::P43;
-const P05500: Analog = Analog::P44;
-const P05625: Analog = Analog::P45;
-const P05750: Analog = Analog::P46;
-const P05875: Analog = Analog::P47;
-const P06000: Analog = Analog::P48;
-const P06125: Analog = Analog::P49;
-const P06250: Analog = Analog::P50;
-const P06375: Analog = Analog::P51;
-const P06500: Analog = Analog::P52;
-const P06625: Analog = Analog::P53;
-const P06750: Analog = Analog::P54;
-const P06875: Analog = Analog::P55;
-const P07000: Analog = Analog::P56;
-const P07125: Analog = Analog::P57;
-const P07250: Analog = Analog::P58;
-const P07375: Analog = Analog::P59;
-const P07500: Analog = Analog::P60;
-const P07625: Analog = Analog::P61;
-const P07750: Analog = Analog::P62;
-const P07875: Analog = Analog::P63;
-const P08000: Analog = Analog::P64;
-const P08125: Analog = Analog::P65;
-const P08250: Analog = Analog::P66;
-const P08375: Analog = Analog::P67;
-const P08500: Analog = Analog::P68;
-const P08625: Analog = Analog::P69;
-const P08750: Analog = Analog::P70;
-const P08875: Analog = Analog::P71;
-const P09000: Analog = Analog::P72;
-const P09125: Analog = Analog::P73;
-const P09250: Analog = Analog::P74;
-const P09375: Analog = Analog::P75;
-const P09500: Analog = Analog::P76;
-const P09625: Analog = Analog::P77;
-const P09750: Analog = Analog::P78;
-const P09875: Analog = Analog::P79;
-const P10000: Analog = Analog::P80;
+#[allow(dead_code)]
+mod consts {
+    use super::Analog;
+
+    pub(crate) const P0000: Analog = Analog::Z;
+    pub(crate) const P0125: Analog = Analog::P1;
+    pub(crate) const P0250: Analog = Analog::P2;
+    pub(crate) const P0375: Analog = Analog::P3;
+    pub(crate) const P0500: Analog = Analog::P4;
+    pub(crate) const P0625: Analog = Analog::P5;
+    pub(crate) const P0750: Analog = Analog::P6;
+    pub(crate) const P0875: Analog = Analog::P7;
+    pub(crate) const P1000: Analog = Analog::P8;
+    pub(crate) const P1125: Analog = Analog::P9;
+    pub(crate) const P1250: Analog = Analog::P10;
+    pub(crate) const P1375: Analog = Analog::P11;
+    pub(crate) const P1500: Analog = Analog::P12;
+    pub(crate) const P1625: Analog = Analog::P13;
+    pub(crate) const P1750: Analog = Analog::P14;
+    pub(crate) const P1875: Analog = Analog::P15;
+    pub(crate) const P2000: Analog = Analog::P16;
+    pub(crate) const P2125: Analog = Analog::P17;
+    pub(crate) const P2250: Analog = Analog::P18;
+    pub(crate) const P2375: Analog = Analog::P19;
+    pub(crate) const P2500: Analog = Analog::P20;
+    pub(crate) const P2625: Analog = Analog::P21;
+    pub(crate) const P2750: Analog = Analog::P22;
+    pub(crate) const P2875: Analog = Analog::P23;
+    pub(crate) const P3000: Analog = Analog::P24;
+    pub(crate) const P3125: Analog = Analog::P25;
+    pub(crate) const P3250: Analog = Analog::P26;
+    pub(crate) const P3375: Analog = Analog::P27;
+    pub(crate) const P3500: Analog = Analog::P28;
+    pub(crate) const P3625: Analog = Analog::P29;
+    pub(crate) const P3750: Analog = Analog::P30;
+    pub(crate) const P3875: Analog = Analog::P31;
+    pub(crate) const P4000: Analog = Analog::P32;
+    pub(crate) const P4125: Analog = Analog::P33;
+    pub(crate) const P4250: Analog = Analog::P34;
+    pub(crate) const P4375: Analog = Analog::P35;
+    pub(crate) const P4500: Analog = Analog::P36;
+    pub(crate) const P4625: Analog = Analog::P37;
+    pub(crate) const P4750: Analog = Analog::P38;
+    pub(crate) const P4875: Analog = Analog::P39;
+    pub(crate) const P5000: Analog = Analog::P40;
+    pub(crate) const P5125: Analog = Analog::P41;
+    pub(crate) const P5250: Analog = Analog::P42;
+    pub(crate) const P5375: Analog = Analog::P43;
+    pub(crate) const P5500: Analog = Analog::P44;
+    pub(crate) const P5625: Analog = Analog::P45;
+    pub(crate) const P5750: Analog = Analog::P46;
+    pub(crate) const P5875: Analog = Analog::P47;
+    pub(crate) const P6000: Analog = Analog::P48;
+    pub(crate) const P6125: Analog = Analog::P49;
+    pub(crate) const P6250: Analog = Analog::P50;
+    pub(crate) const P6375: Analog = Analog::P51;
+    pub(crate) const P6500: Analog = Analog::P52;
+    pub(crate) const P6625: Analog = Analog::P53;
+    pub(crate) const P6750: Analog = Analog::P54;
+    pub(crate) const P6875: Analog = Analog::P55;
+    pub(crate) const P7000: Analog = Analog::P56;
+    pub(crate) const P7125: Analog = Analog::P57;
+    pub(crate) const P7250: Analog = Analog::P58;
+    pub(crate) const P7375: Analog = Analog::P59;
+    pub(crate) const P7500: Analog = Analog::P60;
+    pub(crate) const P7625: Analog = Analog::P61;
+    pub(crate) const P7750: Analog = Analog::P62;
+    pub(crate) const P7875: Analog = Analog::P63;
+    pub(crate) const P8000: Analog = Analog::P64;
+    pub(crate) const P8125: Analog = Analog::P65;
+    pub(crate) const P8250: Analog = Analog::P66;
+    pub(crate) const P8375: Analog = Analog::P67;
+    pub(crate) const P8500: Analog = Analog::P68;
+    pub(crate) const P8625: Analog = Analog::P69;
+    pub(crate) const P8750: Analog = Analog::P70;
+    pub(crate) const P8875: Analog = Analog::P71;
+    pub(crate) const P9000: Analog = Analog::P72;
+    pub(crate) const P9125: Analog = Analog::P73;
+    pub(crate) const P9250: Analog = Analog::P74;
+    pub(crate) const P9375: Analog = Analog::P75;
+    pub(crate) const P9500: Analog = Analog::P76;
+    pub(crate) const P9625: Analog = Analog::P77;
+    pub(crate) const P9750: Analog = Analog::P78;
+    pub(crate) const P9875: Analog = Analog::P79;
+}
+use consts::*;
 
 bounded_integer::bounded_integer! {
     enum Trigger { 0..=140 }
@@ -455,22 +460,22 @@ impl std::convert::From<Shield> for Trigger {
 impl Main {
     fn update_c_stick(&mut self) -> Option<GCStickInput> {
         let input = match (self.c_stick.x, self.c_stick.y) {
-            (AxisState::Null(_), AxisState::Null(_)) => (P00000, P00000),
+            (AxisState::Null(_), AxisState::Null(_)) => (P0000, P0000),
             (AxisState::Active(x_dir, _), AxisState::Null(_)) => {
                 if self.state & B0xxState::MODS == B0xxState::MOD_X {
                     match (self.a_stick.x, self.a_stick.y) {
                         (AxisState::Null(_), AxisState::Active(y_dir, _)) => {
-                            (P08125.neg_not(x_dir), P02875.neg_not(y_dir))
+                            (P8125.neg_not(x_dir), P2875.neg_not(y_dir))
                         }
-                        _ => (P10000.neg_not(x_dir), P00000),
+                        _ => (Analog::MAX.neg_not(x_dir), P0000),
                     }
                 } else {
-                    (P10000.neg_not(x_dir), P00000)
+                    (Analog::MAX.neg_not(x_dir), P0000)
                 }
             }
-            (AxisState::Null(_), AxisState::Active(y_dir, _)) => (P00000, P10000.neg_not(y_dir)),
+            (AxisState::Null(_), AxisState::Active(y_dir, _)) => (P0000, Analog::MAX.neg_not(y_dir)),
             (AxisState::Active(x_dir, _), AxisState::Active(y_dir, _)) => {
-                (P05250.neg_not(x_dir), P08500.neg_not(y_dir))
+                (P5250.neg_not(x_dir), P8500.neg_not(y_dir))
             }
         };
         self.c_stick.update(input)
@@ -478,28 +483,28 @@ impl Main {
 
     fn update_a_stick(&mut self) -> Option<GCStickInput> {
         let input = match (self.a_stick.x, self.a_stick.y) {
-            (AxisState::Null(_), AxisState::Null(_)) => (P00000, P00000),
+            (AxisState::Null(_), AxisState::Null(_)) => (P0000, P0000),
             (AxisState::Active(x_dir, opposing_held), AxisState::Null(_)) => {
                 let x = match (
                     self.state & B0xxState::MODS,
                     self.state.contains(B0xxState::B),
                     opposing_held,
                 ) {
-                    (B0xxState::MOD_X, _, false) | (B0xxState::MOD_Y, true, false) => P06625,
-                    (B0xxState::MOD_Y, false, false) => P03375,
-                    _ => P10000,
+                    (B0xxState::MOD_X, _, false) | (B0xxState::MOD_Y, true, false) => P6625,
+                    (B0xxState::MOD_Y, false, false) => P3375,
+                    _ => Analog::MAX,
                 };
-                (x.neg_not(x_dir), P00000)
+                (x.neg_not(x_dir), P0000)
             }
             (AxisState::Null(_), AxisState::Active(y_dir, _)) => {
                 let y = if self.state & B0xxState::MODS == B0xxState::MOD_X {
-                    P05375
+                    P5375
                 } else if self.state & B0xxState::MODS == B0xxState::MOD_Y {
-                    P07375
+                    P7375
                 } else {
-                    P10000
+                    Analog::MAX
                 };
-                (P00000, y.neg_not(y_dir))
+                (P0000, y.neg_not(y_dir))
             }
             // Diagonals.
             (AxisState::Active(x_dir, _), AxisState::Active(y_dir, _)) => {
@@ -509,40 +514,40 @@ impl Main {
                     self.c_stick.x,
                     self.c_stick.y,
                 ) {
-                    (B0xxState::NONE, true, _, _) => (P07000, P06875),
+                    (B0xxState::NONE, true, _, _) => (P7000, P6875),
 
-                    (B0xxState::MOD_X, true, _, _) => (P06375, P03750),
+                    (B0xxState::MOD_X, true, _, _) => (P6375, P3750),
                     (
                         B0xxState::MOD_X,
                         false,
                         AxisState::Null(None),
                         AxisState::Active(NEGATIVE, RELEASED),
-                    ) => (P07000, P03625),
+                    ) => (P7000, P3625),
                     (
                         B0xxState::MOD_X,
                         false,
                         AxisState::Active(NEGATIVE, RELEASED),
                         AxisState::Null(None),
-                    ) => (P07875, P04875),
+                    ) => (P7875, P4875),
                     (
                         B0xxState::MOD_X,
                         false,
                         AxisState::Null(None),
                         AxisState::Active(POSITIVE, RELEASED),
-                    ) => (P07000, P05125),
+                    ) => (P7000, P5125),
                     (
                         B0xxState::MOD_X,
                         false,
                         AxisState::Active(POSITIVE, RELEASED),
                         AxisState::Null(None),
-                    ) => (P06125, P05250),
-                    (B0xxState::MOD_X, _, _, _) => (P07375, P03125),
+                    ) => (P6125, P5250),
+                    (B0xxState::MOD_X, _, _, _) => (P7375, P3125),
 
                     (B0xxState::MOD_Y, true, _, _) => {
                         if y_dir {
-                            (P04750, P08750)
+                            (P4750, P8750)
                         } else {
-                            (P05000, P08500)
+                            (P5000, P8500)
                         }
                     }
                     (
@@ -550,31 +555,31 @@ impl Main {
                         false,
                         AxisState::Active(POSITIVE, RELEASED),
                         AxisState::Null(None),
-                    ) => (P06375, P07625),
+                    ) => (P6375, P7625),
                     (
                         B0xxState::MOD_Y,
                         false,
                         AxisState::Null(None),
                         AxisState::Active(POSITIVE, RELEASED),
-                    ) => (P05125, P07000),
+                    ) => (P5125, P7000),
                     (
                         B0xxState::MOD_Y,
                         false,
                         AxisState::Active(NEGATIVE, RELEASED),
                         AxisState::Null(None),
-                    ) => (P04875, P07875),
+                    ) => (P4875, P7875),
                     (
                         B0xxState::MOD_Y,
                         false,
                         AxisState::Null(None),
                         AxisState::Active(NEGATIVE, RELEASED),
-                    ) => (P03625, P07000),
-                    (B0xxState::MOD_Y, _, _, _) => (P03125, P07375),
+                    ) => (P3625, P7000),
+                    (B0xxState::MOD_Y, _, _, _) => (P3125, P7375),
                     _ => {
                         if y_dir {
-                            (P07000, P07000)
+                            (P7000, P7000)
                         } else {
-                            (P07125, P06875)
+                            (P7125, P6875)
                         }
                     }
                 };
@@ -842,20 +847,20 @@ mod tests {
         }
     }
 
-    #[test_case(&[B0xx::Impure(Impure::ModX)], P07375, P03125; "mod_x")]
-    #[test_case(&[B0xx::Impure(Impure::ModX), B0xx::Impure(Impure::Stick(Stick::C, Axis::Y, NEGATIVE))], P07000, P03625; "mod_x1")]
-    #[test_case(&[B0xx::Impure(Impure::ModX), B0xx::Impure(Impure::Stick(Stick::C, Axis::X, NEGATIVE))], P07875, P04875; "mod_x2")]
-    #[test_case(&[B0xx::Impure(Impure::ModX), B0xx::Impure(Impure::Stick(Stick::C, Axis::Y, POSITIVE))], P07000, P05125; "mod_x3")]
-    #[test_case(&[B0xx::Impure(Impure::ModX), B0xx::Impure(Impure::Stick(Stick::C, Axis::X, POSITIVE))], P06125, P05250; "mod_x4")]
-    #[test_case(&[B0xx::Impure(Impure::ModY), B0xx::Impure(Impure::Stick(Stick::C, Axis::X, POSITIVE))], P06375, P07625; "mod_y4")]
-    #[test_case(&[B0xx::Impure(Impure::ModY), B0xx::Impure(Impure::Stick(Stick::C, Axis::Y, POSITIVE))], P05125, P07000; "mod_y3")]
-    #[test_case(&[B0xx::Impure(Impure::ModY), B0xx::Impure(Impure::Stick(Stick::C, Axis::X, NEGATIVE))], P04875, P07875; "mod_y2")]
-    #[test_case(&[B0xx::Impure(Impure::ModY), B0xx::Impure(Impure::Stick(Stick::C, Axis::Y, NEGATIVE))], P03625, P07000; "mod_y1")]
-    #[test_case(&[B0xx::Impure(Impure::ModY)], P03125, P07375; "mod_y")]
-    #[test_case(&[B0xx::Impure(Impure::Button(ButtonImpure::L))], P07000, P06875; "l")]
-    #[test_case(&[B0xx::Impure(Impure::Button(ButtonImpure::R))], P07000, P06875; "r")]
-    #[test_case(&[B0xx::Impure(Impure::ModX), B0xx::Impure(Impure::Button(ButtonImpure::L))], P06375, P03750; "mod_x_l")]
-    #[test_case(&[B0xx::Impure(Impure::ModX), B0xx::Impure(Impure::Button(ButtonImpure::R))], P06375, P03750; "mod_x_r")]
+    #[test_case(&[B0xx::Impure(Impure::ModX)], P7375, P3125; "mod_x")]
+    #[test_case(&[B0xx::Impure(Impure::ModX), B0xx::Impure(Impure::Stick(Stick::C, Axis::Y, NEGATIVE))], P7000, P3625; "mod_x1")]
+    #[test_case(&[B0xx::Impure(Impure::ModX), B0xx::Impure(Impure::Stick(Stick::C, Axis::X, NEGATIVE))], P7875, P4875; "mod_x2")]
+    #[test_case(&[B0xx::Impure(Impure::ModX), B0xx::Impure(Impure::Stick(Stick::C, Axis::Y, POSITIVE))], P7000, P5125; "mod_x3")]
+    #[test_case(&[B0xx::Impure(Impure::ModX), B0xx::Impure(Impure::Stick(Stick::C, Axis::X, POSITIVE))], P6125, P5250; "mod_x4")]
+    #[test_case(&[B0xx::Impure(Impure::ModY), B0xx::Impure(Impure::Stick(Stick::C, Axis::X, POSITIVE))], P6375, P7625; "mod_y4")]
+    #[test_case(&[B0xx::Impure(Impure::ModY), B0xx::Impure(Impure::Stick(Stick::C, Axis::Y, POSITIVE))], P5125, P7000; "mod_y3")]
+    #[test_case(&[B0xx::Impure(Impure::ModY), B0xx::Impure(Impure::Stick(Stick::C, Axis::X, NEGATIVE))], P4875, P7875; "mod_y2")]
+    #[test_case(&[B0xx::Impure(Impure::ModY), B0xx::Impure(Impure::Stick(Stick::C, Axis::Y, NEGATIVE))], P3625, P7000; "mod_y1")]
+    #[test_case(&[B0xx::Impure(Impure::ModY)], P3125, P7375; "mod_y")]
+    #[test_case(&[B0xx::Impure(Impure::Button(ButtonImpure::L))], P7000, P6875; "l")]
+    #[test_case(&[B0xx::Impure(Impure::Button(ButtonImpure::R))], P7000, P6875; "r")]
+    #[test_case(&[B0xx::Impure(Impure::ModX), B0xx::Impure(Impure::Button(ButtonImpure::L))], P6375, P3750; "mod_x_l")]
+    #[test_case(&[B0xx::Impure(Impure::ModX), B0xx::Impure(Impure::Button(ButtonImpure::R))], P6375, P3750; "mod_x_r")]
     fn analog(buttons: &[B0xx], x_positive: Analog, y_positive: Analog) {
         for x in [POSITIVE, NEGATIVE] {
             for y in [POSITIVE, NEGATIVE] {
@@ -894,9 +899,9 @@ mod tests {
         }
     }
 
-    #[test_case(&[], P07000, P07000, P07125, P06875; "a_stick")]
-    #[test_case(&[B0xx::Impure(Impure::ModX), B0xx::Impure(Impure::ModY)], P07000, P07000, P07125, P06875; "a_stick_both_mod")]
-    #[test_case(&[B0xx::Impure(Impure::ModY), B0xx::Impure(Impure::Button(ButtonImpure::L))], P04750, P08750, P05000, P08500; "mod_y_lr")]
+    #[test_case(&[], P7000, P7000, P7125, P6875; "a_stick")]
+    #[test_case(&[B0xx::Impure(Impure::ModX), B0xx::Impure(Impure::ModY)], P7000, P7000, P7125, P6875; "a_stick_both_mod")]
+    #[test_case(&[B0xx::Impure(Impure::ModY), B0xx::Impure(Impure::Button(ButtonImpure::L))], P4750, P8750, P5000, P8500; "mod_y_lr")]
     fn analog_top_bottom(buttons: &[B0xx], x_top: Analog, y_top: Analog, x_bottom: Analog, y_bottom: Analog) {
         for x in [POSITIVE, NEGATIVE] {
             for y in [POSITIVE, NEGATIVE] {
@@ -947,7 +952,7 @@ mod tests {
                     B0xx::Impure(Impure::Stick(Stick::C, Axis::X, x)),
                     B0xx::Impure(Impure::Stick(Stick::C, Axis::Y, y)),
                 ];
-                let c_stick = (P05250.neg_not(x), P08500.neg_not(y));
+                let c_stick = (P5250.neg_not(x), P8500.neg_not(y));
                 permutohedron::heap_recursive(&mut buttons, |buttons| {
                     let mut main = Main::default();
                     let got = buttons
@@ -962,10 +967,10 @@ mod tests {
         }
     }
 
-    #[test_case(&[], Stick::A, P10000, P10000; "a_stick")]
-    #[test_case(&[B0xx::Impure(Impure::ModX)], Stick::A, P06625, P05375; "a_stick_mod_x")]
-    #[test_case(&[B0xx::Impure(Impure::ModY)], Stick::A, P03375, P07375; "a_stick_mod_y")]
-    #[test_case(&[], Stick::C, P10000, P10000; "c_stick")]
+    #[test_case(&[], Stick::A, Analog::MAX, Analog::MAX; "a_stick")]
+    #[test_case(&[B0xx::Impure(Impure::ModX)], Stick::A, P6625, P5375; "a_stick_mod_x")]
+    #[test_case(&[B0xx::Impure(Impure::ModY)], Stick::A, P3375, P7375; "a_stick_mod_y")]
+    #[test_case(&[], Stick::C, Analog::MAX, Analog::MAX; "c_stick")]
     fn cardinals(buttons: &[B0xx], stick: Stick, x_positive: Analog, y_positive: Analog) {
         for axis in [Axis::X, Axis::Y] {
             for dir in [POSITIVE, NEGATIVE] {
@@ -977,8 +982,8 @@ mod tests {
                     ))))
                     .collect::<Vec<_>>();
                 let want = match axis {
-                    Axis::X => (x_positive.neg_not(dir), P00000),
-                    Axis::Y => (P00000, y_positive.neg_not(dir)),
+                    Axis::X => (x_positive.neg_not(dir), P0000),
+                    Axis::Y => (P0000, y_positive.neg_not(dir)),
                 };
                 permutohedron::heap_recursive(&mut buttons, |buttons| {
                     let mut main = Main::default();
@@ -1034,7 +1039,7 @@ mod tests {
                 ));
                 assert_eq!(
                     got,
-                    Some(GCInput::Stick(Stick::A, (P00000, P05375.neg_not(y_dir))))
+                    Some(GCInput::Stick(Stick::A, (P0000, P5375.neg_not(y_dir))))
                 );
                 let got = main.b0xx_to_gc(B0xxEvent::new_without_time(
                     B0xx::Impure(Impure::Stick(Stick::C, Axis::X, x_dir)),
@@ -1044,14 +1049,14 @@ mod tests {
                     got,
                     Some(GCInput::Stick(
                         Stick::C,
-                        (P08125.neg_not(x_dir), P02875.neg_not(y_dir))
+                        (P8125.neg_not(x_dir), P2875.neg_not(y_dir))
                     ))
                 );
                 let got = main.b0xx_to_gc(B0xxEvent::new_without_time(
                     B0xx::Impure(Impure::Stick(Stick::C, Axis::X, x_dir)),
                     RELEASED,
                 ));
-                assert_eq!(got, Some(GCInput::Stick(Stick::C, (P00000, P00000))));
+                assert_eq!(got, Some(GCInput::Stick(Stick::C, (P0000, P0000))));
             }
         }
     }
@@ -1080,9 +1085,9 @@ mod tests {
                     .expect("final b0xx input resulted in null GC input");
                 let want = match *buttons.last().unwrap() {
                     B0xx::Impure(Impure::Button(ButtonImpure::B)) => {
-                        GCInput::ModifiedPress((P06625.neg_not(dir), P00000), ButtonImpure::B)
+                        GCInput::ModifiedPress((P6625.neg_not(dir), P0000), ButtonImpure::B)
                     }
-                    _ => GCInput::Stick(Stick::A, (P06625.neg_not(dir), P00000)),
+                    _ => GCInput::Stick(Stick::A, (P6625.neg_not(dir), P0000)),
                 };
                 assert_eq!(got, want);
             });
@@ -1105,7 +1110,7 @@ mod tests {
                 let want = match *buttons.last().unwrap() {
                     B0xx::Impure(Impure::ModX) | B0xx::Impure(Impure::ModY) => None,
                     B0xx::Impure(Impure::Stick(Stick::A, Axis::X, dir)) => {
-                        Some(GCInput::Stick(Stick::A, (P10000.neg_not(dir), P00000)))
+                        Some(GCInput::Stick(Stick::A, (Analog::MAX.neg_not(dir), P0000)))
                     }
                     btn => panic!("unexpected button: {:?}", btn),
                 };
