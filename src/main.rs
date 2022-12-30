@@ -501,6 +501,7 @@ impl Main {
                 };
                 (P00000, y.neg_not(y_dir))
             }
+            // Diagonals.
             (AxisState::Active(x_dir, _), AxisState::Active(y_dir, _)) => {
                 let (x, y) = match (
                     self.state & B0xxState::MODS,
@@ -569,7 +570,13 @@ impl Main {
                         AxisState::Active(NEGATIVE, RELEASED),
                     ) => (P03625, P07000),
                     (B0xxState::MOD_Y, _, _, _) => (P03125, P07375),
-                    _ => (P07000, P07000),
+                    _ => {
+                        if y_dir {
+                            (P07000, P07000)
+                        } else {
+                            (P07125, P06875)
+                        }
+                    }
                 };
                 (x.neg_not(x_dir), y.neg_not(y_dir))
             }
@@ -835,8 +842,6 @@ mod tests {
         }
     }
 
-    #[test_case(&[], P07000, P07000; "a_stick")]
-    #[test_case(&[B0xx::Impure(Impure::ModX), B0xx::Impure(Impure::ModY)], P07000, P07000; "a_stick_both_mod")]
     #[test_case(&[B0xx::Impure(Impure::ModX)], P07375, P03125; "mod_x")]
     #[test_case(&[B0xx::Impure(Impure::ModX), B0xx::Impure(Impure::Stick(Stick::C, Axis::Y, NEGATIVE))], P07000, P03625; "mod_x1")]
     #[test_case(&[B0xx::Impure(Impure::ModX), B0xx::Impure(Impure::Stick(Stick::C, Axis::X, NEGATIVE))], P07875, P04875; "mod_x2")]
@@ -866,6 +871,51 @@ mod tests {
                     )
                     .collect::<Vec<_>>();
                 let want = (x_positive.neg_not(x), y_positive.neg_not(y));
+                permutohedron::heap_recursive(&mut buttons, |buttons| {
+                    let mut main = Main::default();
+                    let got = buttons
+                        .iter()
+                        .fold(None, |_, &btn| {
+                            main.b0xx_to_gc(B0xxEvent::new_without_time(btn, PRESSED))
+                        })
+                        .expect("final b0xx input resulted in null GC input");
+                    let got = match got {
+                        GCInput::ModifiedPress(a_stick, btn) => {
+                            assert_eq!(B0xx::Impure(Impure::Button(btn)), *buttons.last().unwrap());
+                            a_stick
+                        }
+                        GCInput::Stick(Stick::A, a_stick) => a_stick,
+                        GCInput::CStickModifier { a, c: _ } => a,
+                        _ => panic!("unexpected GC input on final b0xx input: {:?}", got),
+                    };
+                    assert_eq!(got, want);
+                });
+            }
+        }
+    }
+
+    #[test_case(&[], P07000, P07000, P07125, P06875; "a_stick")]
+    #[test_case(&[B0xx::Impure(Impure::ModX), B0xx::Impure(Impure::ModY)], P07000, P07000, P07125, P06875; "a_stick_both_mod")]
+    #[test_case(&[B0xx::Impure(Impure::ModY), B0xx::Impure(Impure::Button(ButtonImpure::L))], P04750, P08750, P05000, P08500; "mod_y_lr")]
+    fn analog_top_bottom(buttons: &[B0xx], x_top: Analog, y_top: Analog, x_bottom: Analog, y_bottom: Analog) {
+        for x in [POSITIVE, NEGATIVE] {
+            for y in [POSITIVE, NEGATIVE] {
+                let mut buttons = buttons
+                    .iter()
+                    .copied()
+                    .chain(
+                        [
+                            B0xx::Impure(Impure::Stick(Stick::A, Axis::X, x)),
+                            B0xx::Impure(Impure::Stick(Stick::A, Axis::Y, y)),
+                        ]
+                        .into_iter(),
+                    )
+                    .collect::<Vec<_>>();
+                let want = if y {
+                    (x_top.neg_not(x), y_top.neg_not(y))
+                } else {
+                    (x_bottom.neg_not(x), y_bottom.neg_not(y))
+                };
                 permutohedron::heap_recursive(&mut buttons, |buttons| {
                     let mut main = Main::default();
                     let got = buttons
