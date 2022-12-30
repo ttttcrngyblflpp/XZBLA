@@ -329,6 +329,7 @@ const RELEASED: Pressed = false;
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 enum AxisState {
     Null(Option<Direction>),
+    // Direction is active and whether the opposing direction is pressed.
     Active(Direction, Pressed),
 }
 
