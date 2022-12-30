@@ -167,6 +167,7 @@ bounded_integer::bounded_integer! {
     enum Analog { -80..=80 }
 }
 
+const P00000: Analog = Analog::Z;
 const P00125: Analog = Analog::P1;
 const P00250: Analog = Analog::P2;
 const P00375: Analog = Analog::P3;
@@ -454,20 +455,20 @@ impl std::convert::From<Shield> for Trigger {
 impl Main {
     fn update_c_stick(&mut self) -> Option<GCStickInput> {
         let input = match (self.c_stick.x, self.c_stick.y) {
-            (AxisState::Null(_), AxisState::Null(_)) => (Analog::Z, Analog::Z),
+            (AxisState::Null(_), AxisState::Null(_)) => (P00000, P00000),
             (AxisState::Active(x_dir, _), AxisState::Null(_)) => {
                 if self.state & B0xxState::MODS == B0xxState::MOD_X {
                     match (self.a_stick.x, self.a_stick.y) {
                         (AxisState::Null(_), AxisState::Active(y_dir, _)) => {
                             (P08125.neg_not(x_dir), P02875.neg_not(y_dir))
                         }
-                        _ => (P10000.neg_not(x_dir), Analog::Z),
+                        _ => (P10000.neg_not(x_dir), P00000),
                     }
                 } else {
-                    (P10000.neg_not(x_dir), Analog::Z)
+                    (P10000.neg_not(x_dir), P00000)
                 }
             }
-            (AxisState::Null(_), AxisState::Active(y_dir, _)) => (Analog::Z, P10000.neg_not(y_dir)),
+            (AxisState::Null(_), AxisState::Active(y_dir, _)) => (P00000, P10000.neg_not(y_dir)),
             (AxisState::Active(x_dir, _), AxisState::Active(y_dir, _)) => {
                 (P05250.neg_not(x_dir), P08500.neg_not(y_dir))
             }
@@ -477,7 +478,7 @@ impl Main {
 
     fn update_a_stick(&mut self) -> Option<GCStickInput> {
         let input = match (self.a_stick.x, self.a_stick.y) {
-            (AxisState::Null(_), AxisState::Null(_)) => (Analog::Z, Analog::Z),
+            (AxisState::Null(_), AxisState::Null(_)) => (P00000, P00000),
             (AxisState::Active(x_dir, opposing_held), AxisState::Null(_)) => {
                 let x = match (
                     self.state & B0xxState::MODS,
@@ -488,7 +489,7 @@ impl Main {
                     (B0xxState::MOD_Y, false, false) => P03375,
                     _ => P10000,
                 };
-                (x.neg_not(x_dir), Analog::Z)
+                (x.neg_not(x_dir), P00000)
             }
             (AxisState::Null(_), AxisState::Active(y_dir, _)) => {
                 let y = if self.state & B0xxState::MODS == B0xxState::MOD_X {
@@ -498,7 +499,7 @@ impl Main {
                 } else {
                     P10000
                 };
-                (Analog::Z, y.neg_not(y_dir))
+                (P00000, y.neg_not(y_dir))
             }
             (AxisState::Active(x_dir, _), AxisState::Active(y_dir, _)) => {
                 let (x, y) = match (
@@ -926,8 +927,8 @@ mod tests {
                     ))))
                     .collect::<Vec<_>>();
                 let want = match axis {
-                    Axis::X => (x_positive.neg_not(dir), Analog::Z),
-                    Axis::Y => (Analog::Z, y_positive.neg_not(dir)),
+                    Axis::X => (x_positive.neg_not(dir), P00000),
+                    Axis::Y => (P00000, y_positive.neg_not(dir)),
                 };
                 permutohedron::heap_recursive(&mut buttons, |buttons| {
                     let mut main = Main::default();
@@ -983,7 +984,7 @@ mod tests {
                 ));
                 assert_eq!(
                     got,
-                    Some(GCInput::Stick(Stick::A, (Analog::Z, P05375.neg_not(y_dir))))
+                    Some(GCInput::Stick(Stick::A, (P00000, P05375.neg_not(y_dir))))
                 );
                 let got = main.b0xx_to_gc(B0xxEvent::new_without_time(
                     B0xx::Impure(Impure::Stick(Stick::C, Axis::X, x_dir)),
@@ -1000,7 +1001,7 @@ mod tests {
                     B0xx::Impure(Impure::Stick(Stick::C, Axis::X, x_dir)),
                     RELEASED,
                 ));
-                assert_eq!(got, Some(GCInput::Stick(Stick::C, (Analog::Z, Analog::Z))));
+                assert_eq!(got, Some(GCInput::Stick(Stick::C, (P00000, P00000))));
             }
         }
     }
@@ -1029,9 +1030,9 @@ mod tests {
                     .expect("final b0xx input resulted in null GC input");
                 let want = match *buttons.last().unwrap() {
                     B0xx::Impure(Impure::Button(ButtonImpure::B)) => {
-                        GCInput::ModifiedPress((P06625.neg_not(dir), Analog::Z), ButtonImpure::B)
+                        GCInput::ModifiedPress((P06625.neg_not(dir), P00000), ButtonImpure::B)
                     }
-                    _ => GCInput::Stick(Stick::A, (P06625.neg_not(dir), Analog::Z)),
+                    _ => GCInput::Stick(Stick::A, (P06625.neg_not(dir), P00000)),
                 };
                 assert_eq!(got, want);
             });
@@ -1054,7 +1055,7 @@ mod tests {
                 let want = match *buttons.last().unwrap() {
                     B0xx::Impure(Impure::ModX) | B0xx::Impure(Impure::ModY) => None,
                     B0xx::Impure(Impure::Stick(Stick::A, Axis::X, dir)) => {
-                        Some(GCInput::Stick(Stick::A, (P10000.neg_not(dir), Analog::Z)))
+                        Some(GCInput::Stick(Stick::A, (P10000.neg_not(dir), P00000)))
                     }
                     btn => panic!("unexpected button: {:?}", btn),
                 };
