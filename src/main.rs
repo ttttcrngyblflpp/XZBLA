@@ -514,8 +514,6 @@ impl Main {
                     self.c_stick.x,
                     self.c_stick.y,
                 ) {
-                    (B0xxState::NONE, true, _, _) => (P7000, P6875),
-
                     (B0xxState::MOD_X, true, _, _) => (P6375, P3750),
                     (
                         B0xxState::MOD_X,
@@ -857,8 +855,6 @@ mod tests {
     #[test_case(&[B0xx::Impure(Impure::ModY), B0xx::Impure(Impure::Stick(Stick::C, Axis::X, NEGATIVE))], P4875, P7875; "mod_y2")]
     #[test_case(&[B0xx::Impure(Impure::ModY), B0xx::Impure(Impure::Stick(Stick::C, Axis::Y, NEGATIVE))], P3625, P7000; "mod_y1")]
     #[test_case(&[B0xx::Impure(Impure::ModY)], P3125, P7375; "mod_y")]
-    #[test_case(&[B0xx::Impure(Impure::Button(ButtonImpure::L))], P7000, P6875; "l")]
-    #[test_case(&[B0xx::Impure(Impure::Button(ButtonImpure::R))], P7000, P6875; "r")]
     #[test_case(&[B0xx::Impure(Impure::ModX), B0xx::Impure(Impure::Button(ButtonImpure::L))], P6375, P3750; "mod_x_l")]
     #[test_case(&[B0xx::Impure(Impure::ModX), B0xx::Impure(Impure::Button(ButtonImpure::R))], P6375, P3750; "mod_x_r")]
     fn analog(buttons: &[B0xx], x_positive: Analog, y_positive: Analog) {
