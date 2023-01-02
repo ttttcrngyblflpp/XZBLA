@@ -602,20 +602,8 @@ impl Main {
         let impure = match btn {
             B0xx::Pure(pure) => {
                 return match pure {
-                    Pure::Button(ButtonPure::A) => {
-                        Some(GCInput::Button(Button::Pure(ButtonPure::A), pressed))
-                    }
-                    Pure::Button(ButtonPure::X) => {
-                        Some(GCInput::Button(Button::Pure(ButtonPure::X), pressed))
-                    }
-                    Pure::Button(ButtonPure::Y) => {
-                        Some(GCInput::Button(Button::Pure(ButtonPure::Y), pressed))
-                    }
-                    Pure::Button(ButtonPure::Z) => {
-                        Some(GCInput::Button(Button::Pure(ButtonPure::Z), pressed))
-                    }
-                    Pure::Button(ButtonPure::Start) => {
-                        Some(GCInput::Button(Button::Pure(ButtonPure::Start), pressed))
+                    Pure::Button(btn_pure) => {
+                        Some(GCInput::Button(Button::Pure(btn_pure), pressed))
                     }
                     Pure::Shield(shield) => self
                         .shield_state
