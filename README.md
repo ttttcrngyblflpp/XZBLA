@@ -23,11 +23,12 @@ modifiers become no-ops.
 - [x] 11.1. Holding down both modifiers turns C-stick cardinals into D-pad inputs.
 - [x] 5. When both modifiers are held, analog stick modifications will not apply until
    one of the modifiers is released.
+- [x] Crouch/Walk Option-Select: when enabled, the A-stick diagonals in Q3/4 are modified to
+      (0.7125, 0.6875).
 
 |Modifier   |X     |Y     |Diagonal        |
 |---|---|---|---|
-|NULL(Q12)  |1.0   |1.0   |(0.7000, 0.7000)|
-|NULL(Q34)  |1.0   |1.0   |(0.7125, 0.6875)|
+|NULL       |1.0   |1.0   |(0.7000, 0.7000)|
 |X+[LR]     |      |      |(0.6375, 0.3750)|
 |X+C-Down   |      |      |(0.7000, 0.3625)|
 |X+C-Left   |      |      |(0.7875, 0.4875)|
