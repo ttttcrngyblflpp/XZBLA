@@ -3,6 +3,7 @@
 use std::io::Write as _;
 
 use argh::FromArgs;
+use either::Either;
 use evdev_utils::AsyncDevice;
 use futures::{StreamExt as _, TryStreamExt as _};
 use log::{debug, info, trace};
@@ -94,6 +95,50 @@ impl Remapper {
             pressed: value == 1,
             btn: self.keyboard_to_b0xx(event_code)?,
         })
+    }
+}
+
+enum GCButton {
+    A,
+    B,
+    DUp,
+    DDown,
+    DLeft,
+    DRight,
+    L,
+    R,
+    X,
+    Y,
+    Z,
+    Start,
+}
+
+impl From<Button> for GCButton {
+    fn from(button: Button) -> GCButton {
+        match button {
+            Button::Pure(ButtonPure::A) => GCButton::A,
+            Button::Pure(ButtonPure::X) => GCButton::X,
+            Button::Pure(ButtonPure::Y) => GCButton::Y,
+            Button::Pure(ButtonPure::Z) => GCButton::Z,
+            Button::Pure(ButtonPure::Start) => GCButton::Start,
+            Button::Impure(ButtonImpure::B) => GCButton::B,
+            Button::Impure(ButtonImpure::L) => GCButton::L,
+            Button::Impure(ButtonImpure::R) => GCButton::R,
+            Button::DPad(Axis::Y, POSITIVE) => GCButton::DUp,
+            Button::DPad(Axis::Y, NEGATIVE) => GCButton::DDown,
+            Button::DPad(Axis::X, POSITIVE) => GCButton::DRight,
+            Button::DPad(Axis::X, NEGATIVE) => GCButton::DLeft,
+        }
+    }
+}
+
+impl From<ButtonImpure> for GCButton {
+    fn from(button: ButtonImpure) -> GCButton {
+        match button {
+            ButtonImpure::B => GCButton::B,
+            ButtonImpure::L => GCButton::L,
+            ButtonImpure::R => GCButton::R,
+        }
     }
 }
 
@@ -273,14 +318,100 @@ type GCStickInput = (Analog, Analog);
 type AStickInput = GCStickInput;
 type CStickInput = GCStickInput;
 
+enum DolphinPipeInput {
+    Button(GCButton, Pressed),
+    Trigger(Trigger),
+    Stick(Stick, GCStickInput),
+}
+
+impl DolphinPipeInput {
+    fn into_input_string(self) -> String {
+        match self {
+            Self::Button(button, pressed) => format!(
+                "{} {}\n",
+                if pressed { "PRESS" } else { "RELEASE" },
+                match button {
+                    GCButton::A => "A",
+                    GCButton::B => "B",
+                    GCButton::DUp => "D_Up",
+                    GCButton::DDown => "D_Down",
+                    GCButton::DLeft => "D_Left",
+                    GCButton::DRight => "D_Right",
+                    GCButton::L => "L",
+                    GCButton::R => "R",
+                    GCButton::X => "X",
+                    GCButton::Y => "Y",
+                    GCButton::Z => "Z",
+                    GCButton::Start => "START",
+                }
+            ),
+            Self::Trigger(trigger) => format!("SET L {}\n", (trigger.get() as f64) / 128.),
+            Self::Stick(stick, (x, y)) => {
+                fn convert(a: Analog) -> f64 {
+                    let a = a.get() as f64;
+                    0.5 + 0.5 * if a < 0.0 { a / 128. } else { a / 127. }
+                }
+
+                format!(
+                    "SET {} {} {}",
+                    match stick {
+                        Stick::A => "MAIN",
+                        Stick::C => "C",
+                    },
+                    convert(x),
+                    convert(y)
+                )
+            }
+        }
+    }
+}
+
+/// Intermediary representation of a possibly composite input.
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-enum GCInput {
+enum Input {
     Button(Button, Pressed),
     Stick(Stick, GCStickInput),
     Trigger(Trigger),
     ModifiedPress(AStickInput, ButtonImpure),
     ReleaseModifier(ButtonImpure, AStickInput),
     CStickModifier { a: AStickInput, c: CStickInput },
+}
+
+impl Input {
+    fn into_pipe_inputs(self) -> impl IntoIterator<Item = DolphinPipeInput> {
+        match self {
+            Self::Button(button, pressed) => Either::Left(std::iter::once(
+                DolphinPipeInput::Button(button.into(), pressed),
+            )),
+            Self::Trigger(trigger) => {
+                Either::Left(std::iter::once(DolphinPipeInput::Trigger(trigger)))
+            }
+            Self::Stick(stick, stick_input) => {
+                Either::Left(std::iter::once(DolphinPipeInput::Stick(stick, stick_input)))
+            }
+            Self::ModifiedPress(a_stick_input, button_impure) => Either::Right(
+                [
+                    DolphinPipeInput::Stick(Stick::A, a_stick_input),
+                    DolphinPipeInput::Button(button_impure.into(), PRESSED),
+                ]
+                .into_iter(),
+            ),
+            Self::ReleaseModifier(button_impure, a_stick_input) => Either::Right(
+                [
+                    DolphinPipeInput::Button(button_impure.into(), RELEASED),
+                    DolphinPipeInput::Stick(Stick::A, a_stick_input),
+                ]
+                .into_iter(),
+            ),
+            Self::CStickModifier { a, c } => Either::Right(
+                [
+                    DolphinPipeInput::Stick(Stick::C, c),
+                    DolphinPipeInput::Stick(Stick::A, a),
+                ]
+                .into_iter(),
+            ),
+        }
+    }
 }
 
 bitflags::bitflags! {
@@ -476,7 +607,9 @@ impl Main {
                     (Analog::MAX.neg_not(x_dir), P0000)
                 }
             }
-            (AxisState::Null(_), AxisState::Active(y_dir, _)) => (P0000, Analog::MAX.neg_not(y_dir)),
+            (AxisState::Null(_), AxisState::Active(y_dir, _)) => {
+                (P0000, Analog::MAX.neg_not(y_dir))
+            }
             (AxisState::Active(x_dir, _), AxisState::Active(y_dir, _)) => {
                 (P5250.neg_not(x_dir), P8500.neg_not(y_dir))
             }
@@ -590,7 +723,7 @@ impl Main {
         self.a_stick.update(input)
     }
 
-    fn b0xx_to_gc(
+    fn process_b0xx(
         &mut self,
         B0xxEvent {
             time: _,
@@ -598,17 +731,15 @@ impl Main {
             pressed,
         }: B0xxEvent,
         crouch_walk_option_select: bool,
-    ) -> Option<GCInput> {
+    ) -> Option<Input> {
         let impure = match btn {
             B0xx::Pure(pure) => {
                 return match pure {
-                    Pure::Button(btn_pure) => {
-                        Some(GCInput::Button(Button::Pure(btn_pure), pressed))
-                    }
+                    Pure::Button(btn_pure) => Some(Input::Button(Button::Pure(btn_pure), pressed)),
                     Pure::Shield(shield) => self
                         .shield_state
                         .transition(shield, pressed)
-                        .map(GCInput::Trigger),
+                        .map(Input::Trigger),
                 };
             }
             B0xx::Impure(impure) => impure,
@@ -626,23 +757,25 @@ impl Main {
                         self.state.set(B0xxState::R, pressed);
                     }
                 }
-                return Some(if let Some(new) = self.update_a_stick(crouch_walk_option_select) {
-                    self.a_stick.gc_input = new;
-                    if pressed {
-                        GCInput::ModifiedPress(new, btn)
+                return Some(
+                    if let Some(new) = self.update_a_stick(crouch_walk_option_select) {
+                        self.a_stick.gc_input = new;
+                        if pressed {
+                            Input::ModifiedPress(new, btn)
+                        } else {
+                            Input::ReleaseModifier(btn, new)
+                        }
                     } else {
-                        GCInput::ReleaseModifier(btn, new)
-                    }
-                } else {
-                    GCInput::Button(Button::Impure(btn), pressed)
-                });
+                        Input::Button(Button::Impure(btn), pressed)
+                    },
+                );
             }
             Impure::Stick(Stick::C, axis, dir) => {
                 if pressed && self.state.contains(B0xxState::MODS) {
                     self.state.dpad_insert(axis, dir);
-                    return Some(GCInput::Button(Button::DPad(axis, dir), PRESSED));
+                    return Some(Input::Button(Button::DPad(axis, dir), PRESSED));
                 } else if !pressed && self.state.dpad_clear_if(axis, dir) {
-                    return Some(GCInput::Button(Button::DPad(axis, dir), RELEASED));
+                    return Some(Input::Button(Button::DPad(axis, dir), RELEASED));
                 } else {
                     match axis {
                         Axis::X => self.c_stick.x.transition(dir, pressed),
@@ -656,11 +789,14 @@ impl Main {
             Impure::ModY => self.state.set(B0xxState::MOD_Y, pressed),
         }
 
-        match (self.update_a_stick(crouch_walk_option_select), self.update_c_stick()) {
+        match (
+            self.update_a_stick(crouch_walk_option_select),
+            self.update_c_stick(),
+        ) {
             (None, None) => None,
-            (Some(new_a), None) => Some(GCInput::Stick(Stick::A, new_a)),
-            (None, Some(new_c)) => Some(GCInput::Stick(Stick::C, new_c)),
-            (Some(new_a), Some(new_c)) => Some(GCInput::CStickModifier { a: new_a, c: new_c }),
+            (Some(new_a), None) => Some(Input::Stick(Stick::A, new_a)),
+            (None, Some(new_c)) => Some(Input::Stick(Stick::C, new_c)),
+            (Some(new_a), Some(new_c)) => Some(Input::CStickModifier { a: new_a, c: new_c }),
         }
     }
 }
@@ -670,85 +806,8 @@ struct OutputSink {
 }
 
 impl OutputSink {
-    fn send(&mut self, o: GCInput) -> anyhow::Result<()> {
-        fn convert(a: Analog) -> f64 {
-            let a = a.get() as f64;
-            0.5 + 0.5 * if a < 0.0 { a / 128. } else { a / 127. }
-        }
-
-        fn btn_name(btn: Button) -> &'static str {
-            match btn {
-                Button::Pure(btn) => btn_pure_name(btn),
-                Button::Impure(btn) => btn_impure_name(btn),
-                Button::DPad(axis, dir) => match (axis, dir) {
-                    (Axis::X, POSITIVE) => "D_RIGHT",
-                    (Axis::X, NEGATIVE) => "D_LEFT",
-                    (Axis::Y, POSITIVE) => "D_UP",
-                    (Axis::Y, NEGATIVE) => "D_DOWN",
-                },
-            }
-        }
-
-        fn btn_impure_name(btn: ButtonImpure) -> &'static str {
-            use ButtonImpure::*;
-            match btn {
-                B => "B",
-                L => "L",
-                R => "R",
-            }
-        }
-
-        fn btn_pure_name(btn: ButtonPure) -> &'static str {
-            use ButtonPure::*;
-            match btn {
-                A => "A",
-                X => "X",
-                Y => "Y",
-                Z => "Z",
-                Start => "START",
-            }
-        }
-
-        fn stick_name(stick: Stick) -> &'static str {
-            match stick {
-                Stick::A => "MAIN",
-                Stick::C => "C",
-            }
-        }
-
-        let cmd = match o {
-            GCInput::Button(btn, pressed) => format!(
-                "{} {}\n",
-                if pressed { "PRESS" } else { "RELEASE" },
-                btn_name(btn)
-            ),
-            GCInput::Stick(stick, (x, y)) => {
-                format!("SET {} {} {}\n", stick_name(stick), convert(x), convert(y))
-            }
-            GCInput::Trigger(v) => format!("SET L {}\n", (v.get() as f64) / 128.),
-            GCInput::ModifiedPress((x, y), btn) => format!(
-                "SET MAIN {} {}\nPRESS {}\n",
-                convert(x),
-                convert(y),
-                btn_impure_name(btn),
-            ),
-            GCInput::ReleaseModifier(btn, (x, y)) => format!(
-                "RELEASE {}\nSET MAIN {} {}\n",
-                btn_impure_name(btn),
-                convert(x),
-                convert(y),
-            ),
-            GCInput::CStickModifier {
-                a: (ax, ay),
-                c: (cx, cy),
-            } => format!(
-                "SET MAIN {} {}\nSET C {} {}\n",
-                convert(ax),
-                convert(ay),
-                convert(cx),
-                convert(cy),
-            ),
-        };
+    fn send(&mut self, pipe_input: DolphinPipeInput) -> anyhow::Result<()> {
+        let cmd = pipe_input.into_input_string();
         debug!("writing: {}", cmd);
         let _ = self.file.write(cmd.as_bytes())?;
         Ok(())
@@ -756,7 +815,10 @@ impl OutputSink {
 }
 
 fn main() {
-    let Args { log_level, crouch_walk_option_select } = argh::from_env();
+    let Args {
+        log_level,
+        crouch_walk_option_select,
+    } = argh::from_env();
 
     simple_logger::SimpleLogger::new()
         .with_level(log::LevelFilter::Warn)
@@ -792,8 +854,10 @@ fn main() {
                         Some(e) => e,
                         None => continue,
                     };
-                    if let Some(o) = main.b0xx_to_gc(e, crouch_walk_option_select) {
-                        sink.send(o).expect("failed to write to pipe");
+                    if let Some(input) = main.process_b0xx(e, crouch_walk_option_select) {
+                        for pipe_input in input.into_pipe_inputs() {
+                            sink.send(pipe_input).expect("failed to write to pipe");
+                        }
                     }
                 }
             }
@@ -808,30 +872,30 @@ mod tests {
     use test_case::test_case;
 
     #[test_case(&[
-        (B0xx::Pure(Pure::Shield(Shield::Light)), PRESSED, Some(GCInput::Trigger(LS))),
-        (B0xx::Pure(Pure::Shield(Shield::Medium)), PRESSED, Some(GCInput::Trigger(MS))),
-        (B0xx::Pure(Pure::Shield(Shield::Medium)), RELEASED, Some(GCInput::Trigger(LS))),
-        (B0xx::Pure(Pure::Shield(Shield::Light)), RELEASED, Some(GCInput::Trigger(Trigger::Z))),
+        (B0xx::Pure(Pure::Shield(Shield::Light)), PRESSED, Some(Input::Trigger(LS))),
+        (B0xx::Pure(Pure::Shield(Shield::Medium)), PRESSED, Some(Input::Trigger(MS))),
+        (B0xx::Pure(Pure::Shield(Shield::Medium)), RELEASED, Some(Input::Trigger(LS))),
+        (B0xx::Pure(Pure::Shield(Shield::Light)), RELEASED, Some(Input::Trigger(Trigger::Z))),
     ]; "shield1")]
     #[test_case(&[
-        (B0xx::Pure(Pure::Shield(Shield::Light)), PRESSED, Some(GCInput::Trigger(LS))),
-        (B0xx::Pure(Pure::Shield(Shield::Medium)), PRESSED, Some(GCInput::Trigger(MS))),
+        (B0xx::Pure(Pure::Shield(Shield::Light)), PRESSED, Some(Input::Trigger(LS))),
+        (B0xx::Pure(Pure::Shield(Shield::Medium)), PRESSED, Some(Input::Trigger(MS))),
         (B0xx::Pure(Pure::Shield(Shield::Light)), RELEASED, None),
-        (B0xx::Pure(Pure::Shield(Shield::Light)), PRESSED, Some(GCInput::Trigger(LS))),
-        (B0xx::Pure(Pure::Shield(Shield::Light)), RELEASED, Some(GCInput::Trigger(Trigger::Z))),
+        (B0xx::Pure(Pure::Shield(Shield::Light)), PRESSED, Some(Input::Trigger(LS))),
+        (B0xx::Pure(Pure::Shield(Shield::Light)), RELEASED, Some(Input::Trigger(Trigger::Z))),
         (B0xx::Pure(Pure::Shield(Shield::Medium)), RELEASED, None),
     ]; "shield2")]
     #[test_case(&[
-        (B0xx::Pure(Pure::Shield(Shield::Medium)), PRESSED, Some(GCInput::Trigger(MS))),
-        (B0xx::Pure(Pure::Shield(Shield::Light)), PRESSED, Some(GCInput::Trigger(LS))),
+        (B0xx::Pure(Pure::Shield(Shield::Medium)), PRESSED, Some(Input::Trigger(MS))),
+        (B0xx::Pure(Pure::Shield(Shield::Light)), PRESSED, Some(Input::Trigger(LS))),
         (B0xx::Pure(Pure::Shield(Shield::Medium)), RELEASED, None),
-        (B0xx::Pure(Pure::Shield(Shield::Light)), RELEASED, Some(GCInput::Trigger(Trigger::Z))),
+        (B0xx::Pure(Pure::Shield(Shield::Light)), RELEASED, Some(Input::Trigger(Trigger::Z))),
     ]; "shield3")]
-    fn steps(steps: &[(B0xx, Pressed, Option<GCInput>)]) {
+    fn steps(steps: &[(B0xx, Pressed, Option<Input>)]) {
         let mut main = Main::default();
         for &(btn, pressed, want) in steps.into_iter() {
             assert_eq!(
-                main.b0xx_to_gc(B0xxEvent::new_without_time(btn, pressed), false),
+                main.process_b0xx(B0xxEvent::new_without_time(btn, pressed), false),
                 want
             );
         }
@@ -871,16 +935,16 @@ mod tests {
                     let got = buttons
                         .iter()
                         .fold(None, |_, &btn| {
-                            main.b0xx_to_gc(B0xxEvent::new_without_time(btn, PRESSED), false)
+                            main.process_b0xx(B0xxEvent::new_without_time(btn, PRESSED), false)
                         })
                         .expect("final b0xx input resulted in null GC input");
                     let got = match got {
-                        GCInput::ModifiedPress(a_stick, btn) => {
+                        Input::ModifiedPress(a_stick, btn) => {
                             assert_eq!(B0xx::Impure(Impure::Button(btn)), *buttons.last().unwrap());
                             a_stick
                         }
-                        GCInput::Stick(Stick::A, a_stick) => a_stick,
-                        GCInput::CStickModifier { a, c: _ } => a,
+                        Input::Stick(Stick::A, a_stick) => a_stick,
+                        Input::CStickModifier { a, c: _ } => a,
                         _ => panic!("unexpected GC input on final b0xx input: {:?}", got),
                     };
                     assert_eq!(got, want);
@@ -892,7 +956,14 @@ mod tests {
     #[test_case(false, &[B0xx::Impure(Impure::ModY), B0xx::Impure(Impure::Button(ButtonImpure::L))], P4750, P8750, P5000, P8500; "mod_y_l")]
     #[test_case(false, &[B0xx::Impure(Impure::ModY), B0xx::Impure(Impure::Button(ButtonImpure::R))], P4750, P8750, P5000, P8500; "mod_y_r")]
     #[test_case(true, &[], P7000, P7000, P7125, P6875; "crouch_walk_option_select")]
-    fn analog_top_bottom(crouch_walk_option_select: bool, buttons: &[B0xx], x_top: Analog, y_top: Analog, x_bottom: Analog, y_bottom: Analog) {
+    fn analog_top_bottom(
+        crouch_walk_option_select: bool,
+        buttons: &[B0xx],
+        x_top: Analog,
+        y_top: Analog,
+        x_bottom: Analog,
+        y_bottom: Analog,
+    ) {
         for x in [POSITIVE, NEGATIVE] {
             for y in [POSITIVE, NEGATIVE] {
                 let mut buttons = buttons
@@ -916,16 +987,19 @@ mod tests {
                     let got = buttons
                         .iter()
                         .fold(None, |_, &btn| {
-                            main.b0xx_to_gc(B0xxEvent::new_without_time(btn, PRESSED), crouch_walk_option_select)
+                            main.process_b0xx(
+                                B0xxEvent::new_without_time(btn, PRESSED),
+                                crouch_walk_option_select,
+                            )
                         })
                         .expect("final b0xx input resulted in null GC input");
                     let got = match got {
-                        GCInput::ModifiedPress(a_stick, btn) => {
+                        Input::ModifiedPress(a_stick, btn) => {
                             assert_eq!(B0xx::Impure(Impure::Button(btn)), *buttons.last().unwrap());
                             a_stick
                         }
-                        GCInput::Stick(Stick::A, a_stick) => a_stick,
-                        GCInput::CStickModifier { a, c: _ } => a,
+                        Input::Stick(Stick::A, a_stick) => a_stick,
+                        Input::CStickModifier { a, c: _ } => a,
                         _ => panic!("unexpected GC input on final b0xx input: {:?}", got),
                     };
                     assert_eq!(got, want);
@@ -948,10 +1022,10 @@ mod tests {
                     let got = buttons
                         .iter()
                         .fold(None, |_, &btn| {
-                            main.b0xx_to_gc(B0xxEvent::new_without_time(btn, PRESSED), false)
+                            main.process_b0xx(B0xxEvent::new_without_time(btn, PRESSED), false)
                         })
                         .expect("final b0xx input resulted in null GC input");
-                    assert_eq!(got, GCInput::Stick(Stick::C, c_stick));
+                    assert_eq!(got, Input::Stick(Stick::C, c_stick));
                 });
             }
         }
@@ -980,10 +1054,10 @@ mod tests {
                     let got = buttons
                         .iter()
                         .fold(None, |_, &btn| {
-                            main.b0xx_to_gc(B0xxEvent::new_without_time(btn, PRESSED), false)
+                            main.process_b0xx(B0xxEvent::new_without_time(btn, PRESSED), false)
                         })
                         .expect("final b0xx input resulted in null GC input");
-                    assert_eq!(got, GCInput::Stick(stick, want));
+                    assert_eq!(got, Input::Stick(stick, want));
                 });
             }
         }
@@ -994,21 +1068,24 @@ mod tests {
         for axis in [Axis::X, Axis::Y] {
             for dir in [POSITIVE, NEGATIVE] {
                 let mut main = Main::default();
-                let got = main.b0xx_to_gc(B0xxEvent::new_without_time(
-                    B0xx::Impure(Impure::ModX),
-                    PRESSED,
-                ), false);
+                let got = main.process_b0xx(
+                    B0xxEvent::new_without_time(B0xx::Impure(Impure::ModX), PRESSED),
+                    false,
+                );
                 assert_eq!(got, None);
-                let got = main.b0xx_to_gc(B0xxEvent::new_without_time(
-                    B0xx::Impure(Impure::ModY),
-                    PRESSED,
-                ), false);
+                let got = main.process_b0xx(
+                    B0xxEvent::new_without_time(B0xx::Impure(Impure::ModY), PRESSED),
+                    false,
+                );
                 assert_eq!(got, None);
-                let got = main.b0xx_to_gc(B0xxEvent::new_without_time(
-                    B0xx::Impure(Impure::Stick(Stick::C, axis, dir)),
-                    PRESSED,
-                ), false);
-                assert_eq!(got, Some(GCInput::Button(Button::DPad(axis, dir), PRESSED)));
+                let got = main.process_b0xx(
+                    B0xxEvent::new_without_time(
+                        B0xx::Impure(Impure::Stick(Stick::C, axis, dir)),
+                        PRESSED,
+                    ),
+                    false,
+                );
+                assert_eq!(got, Some(Input::Button(Button::DPad(axis, dir), PRESSED)));
             }
         }
     }
@@ -1018,35 +1095,44 @@ mod tests {
         for x_dir in [POSITIVE, NEGATIVE] {
             for y_dir in [POSITIVE, NEGATIVE] {
                 let mut main = Main::default();
-                let got = main.b0xx_to_gc(B0xxEvent::new_without_time(
-                    B0xx::Impure(Impure::ModX),
-                    PRESSED,
-                ), false);
-                assert_eq!(got, None);
-                let got = main.b0xx_to_gc(B0xxEvent::new_without_time(
-                    B0xx::Impure(Impure::Stick(Stick::A, Axis::Y, y_dir)),
-                    PRESSED,
-                ), false);
-                assert_eq!(
-                    got,
-                    Some(GCInput::Stick(Stick::A, (P0000, P5375.neg_not(y_dir))))
+                let got = main.process_b0xx(
+                    B0xxEvent::new_without_time(B0xx::Impure(Impure::ModX), PRESSED),
+                    false,
                 );
-                let got = main.b0xx_to_gc(B0xxEvent::new_without_time(
-                    B0xx::Impure(Impure::Stick(Stick::C, Axis::X, x_dir)),
-                    PRESSED,
-                ), false);
+                assert_eq!(got, None);
+                let got = main.process_b0xx(
+                    B0xxEvent::new_without_time(
+                        B0xx::Impure(Impure::Stick(Stick::A, Axis::Y, y_dir)),
+                        PRESSED,
+                    ),
+                    false,
+                );
                 assert_eq!(
                     got,
-                    Some(GCInput::Stick(
+                    Some(Input::Stick(Stick::A, (P0000, P5375.neg_not(y_dir))))
+                );
+                let got = main.process_b0xx(
+                    B0xxEvent::new_without_time(
+                        B0xx::Impure(Impure::Stick(Stick::C, Axis::X, x_dir)),
+                        PRESSED,
+                    ),
+                    false,
+                );
+                assert_eq!(
+                    got,
+                    Some(Input::Stick(
                         Stick::C,
                         (P8125.neg_not(x_dir), P2875.neg_not(y_dir))
                     ))
                 );
-                let got = main.b0xx_to_gc(B0xxEvent::new_without_time(
-                    B0xx::Impure(Impure::Stick(Stick::C, Axis::X, x_dir)),
-                    RELEASED,
-                ), false);
-                assert_eq!(got, Some(GCInput::Stick(Stick::C, (P0000, P0000))));
+                let got = main.process_b0xx(
+                    B0xxEvent::new_without_time(
+                        B0xx::Impure(Impure::Stick(Stick::C, Axis::X, x_dir)),
+                        RELEASED,
+                    ),
+                    false,
+                );
+                assert_eq!(got, Some(Input::Stick(Stick::C, (P0000, P0000))));
             }
         }
     }
@@ -1070,14 +1156,14 @@ mod tests {
                 let got = buttons
                     .iter()
                     .fold(None, |_, &btn| {
-                        main.b0xx_to_gc(B0xxEvent::new_without_time(btn, PRESSED), false)
+                        main.process_b0xx(B0xxEvent::new_without_time(btn, PRESSED), false)
                     })
                     .expect("final b0xx input resulted in null GC input");
                 let want = match *buttons.last().unwrap() {
                     B0xx::Impure(Impure::Button(ButtonImpure::B)) => {
-                        GCInput::ModifiedPress((P6625.neg_not(dir), P0000), ButtonImpure::B)
+                        Input::ModifiedPress((P6625.neg_not(dir), P0000), ButtonImpure::B)
                     }
-                    _ => GCInput::Stick(Stick::A, (P6625.neg_not(dir), P0000)),
+                    _ => Input::Stick(Stick::A, (P6625.neg_not(dir), P0000)),
                 };
                 assert_eq!(got, want);
             });
@@ -1095,12 +1181,12 @@ mod tests {
             permutohedron::heap_recursive(&mut buttons, |buttons| {
                 let mut main = Main::default();
                 let got = buttons.iter().fold(None, |_, &btn| {
-                    main.b0xx_to_gc(B0xxEvent::new_without_time(btn, PRESSED), false)
+                    main.process_b0xx(B0xxEvent::new_without_time(btn, PRESSED), false)
                 });
                 let want = match *buttons.last().unwrap() {
                     B0xx::Impure(Impure::ModX) | B0xx::Impure(Impure::ModY) => None,
                     B0xx::Impure(Impure::Stick(Stick::A, Axis::X, dir)) => {
-                        Some(GCInput::Stick(Stick::A, (Analog::MAX.neg_not(dir), P0000)))
+                        Some(Input::Stick(Stick::A, (Analog::MAX.neg_not(dir), P0000)))
                     }
                     btn => panic!("unexpected button: {:?}", btn),
                 };
