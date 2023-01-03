@@ -32,49 +32,31 @@ fn log_event(event: &evdev_rs::InputEvent) {
 struct Remapper;
 
 impl Remapper {
-    fn keyboard_to_b0xx(&self, c: evdev_rs::enums::EventCode) -> Option<B0xx> {
+    fn keyboard_to_b0xx(&self, c: evdev_rs::enums::EventCode) -> Option<B0xxRaw> {
         use evdev_rs::enums::{EventCode, EV_KEY};
         match c {
-            EventCode::EV_KEY(EV_KEY::KEY_SEMICOLON) => {
-                Some(B0xx::Impure(Impure::Button(ButtonImpure::L)))
-            }
-            EventCode::EV_KEY(EV_KEY::KEY_O) => {
-                Some(B0xx::Impure(Impure::Stick(Stick::A, Axis::X, NEGATIVE)))
-            }
-            EventCode::EV_KEY(EV_KEY::KEY_E) => {
-                Some(B0xx::Impure(Impure::Stick(Stick::A, Axis::Y, NEGATIVE)))
-            }
-            EventCode::EV_KEY(EV_KEY::KEY_U) => {
-                Some(B0xx::Impure(Impure::Stick(Stick::A, Axis::X, POSITIVE)))
-            }
-            EventCode::EV_KEY(EV_KEY::KEY_LEFTSHIFT) => Some(B0xx::Impure(Impure::ModX)),
-            EventCode::EV_KEY(EV_KEY::KEY_LEFTCTRL) => Some(B0xx::Impure(Impure::ModY)),
+            EventCode::EV_KEY(EV_KEY::KEY_SEMICOLON) => Some(B0xxRaw::L),
+            EventCode::EV_KEY(EV_KEY::KEY_O) => Some(B0xxRaw::Left),
+            EventCode::EV_KEY(EV_KEY::KEY_E) => Some(B0xxRaw::Down),
+            EventCode::EV_KEY(EV_KEY::KEY_U) => Some(B0xxRaw::Right),
+            EventCode::EV_KEY(EV_KEY::KEY_LEFTSHIFT) => Some(B0xxRaw::MX),
+            EventCode::EV_KEY(EV_KEY::KEY_LEFTCTRL) => Some(B0xxRaw::MY),
             EventCode::EV_KEY(EV_KEY::KEY_Y) | EventCode::EV_KEY(EV_KEY::KEY_F) => {
-                Some(B0xx::Pure(Pure::Button(ButtonPure::Start)))
+                Some(B0xxRaw::Start)
             }
-            EventCode::EV_KEY(EV_KEY::KEY_G) => Some(B0xx::Impure(Impure::Button(ButtonImpure::R))),
-            EventCode::EV_KEY(EV_KEY::KEY_C) => Some(B0xx::Pure(Pure::Button(ButtonPure::Y))),
-            EventCode::EV_KEY(EV_KEY::KEY_R) => Some(B0xx::Pure(Pure::Shield(Shield::Light))),
-            EventCode::EV_KEY(EV_KEY::KEY_S) => Some(B0xx::Pure(Pure::Shield(Shield::Medium))),
-            EventCode::EV_KEY(EV_KEY::KEY_H) => Some(B0xx::Impure(Impure::Button(ButtonImpure::B))),
-            EventCode::EV_KEY(EV_KEY::KEY_T) => Some(B0xx::Pure(Pure::Button(ButtonPure::X))),
-            EventCode::EV_KEY(EV_KEY::KEY_N) => Some(B0xx::Pure(Pure::Button(ButtonPure::Z))),
-            EventCode::EV_KEY(EV_KEY::KEY_Z) => {
-                Some(B0xx::Impure(Impure::Stick(Stick::A, Axis::Y, POSITIVE)))
-            }
-            EventCode::EV_KEY(EV_KEY::KEY_ESC) => {
-                Some(B0xx::Impure(Impure::Stick(Stick::C, Axis::Y, NEGATIVE)))
-            }
-            EventCode::EV_KEY(EV_KEY::KEY_BACKSPACE) => {
-                Some(B0xx::Impure(Impure::Stick(Stick::C, Axis::X, NEGATIVE)))
-            }
-            EventCode::EV_KEY(EV_KEY::KEY_DOWN) => {
-                Some(B0xx::Impure(Impure::Stick(Stick::C, Axis::Y, POSITIVE)))
-            }
-            EventCode::EV_KEY(EV_KEY::KEY_ENTER) => {
-                Some(B0xx::Impure(Impure::Stick(Stick::C, Axis::X, POSITIVE)))
-            }
-            EventCode::EV_KEY(EV_KEY::KEY_SPACE) => Some(B0xx::Pure(Pure::Button(ButtonPure::A))),
+            EventCode::EV_KEY(EV_KEY::KEY_G) => Some(B0xxRaw::R),
+            EventCode::EV_KEY(EV_KEY::KEY_C) => Some(B0xxRaw::Y),
+            EventCode::EV_KEY(EV_KEY::KEY_R) => Some(B0xxRaw::LS),
+            EventCode::EV_KEY(EV_KEY::KEY_S) => Some(B0xxRaw::MS),
+            EventCode::EV_KEY(EV_KEY::KEY_H) => Some(B0xxRaw::B),
+            EventCode::EV_KEY(EV_KEY::KEY_T) => Some(B0xxRaw::X),
+            EventCode::EV_KEY(EV_KEY::KEY_N) => Some(B0xxRaw::Z),
+            EventCode::EV_KEY(EV_KEY::KEY_Z) => Some(B0xxRaw::Up),
+            EventCode::EV_KEY(EV_KEY::KEY_ESC) => Some(B0xxRaw::CD),
+            EventCode::EV_KEY(EV_KEY::KEY_BACKSPACE) => Some(B0xxRaw::CL),
+            EventCode::EV_KEY(EV_KEY::KEY_DOWN) => Some(B0xxRaw::CU),
+            EventCode::EV_KEY(EV_KEY::KEY_ENTER) => Some(B0xxRaw::CR),
+            EventCode::EV_KEY(EV_KEY::KEY_SPACE) => Some(B0xxRaw::A),
             _ => None,
         }
     }
@@ -95,6 +77,57 @@ impl Remapper {
             pressed: value == 1,
             btn: self.keyboard_to_b0xx(event_code)?,
         })
+    }
+}
+
+#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+enum B0xxRaw {
+    A,
+    B,
+    L,
+    R,
+    X,
+    Y,
+    Z,
+    Start,
+    Left,
+    Right,
+    Down,
+    Up,
+    MX,
+    MY,
+    LS,
+    MS,
+    CU,
+    CD,
+    CL,
+    CR,
+}
+
+impl From<B0xxRaw> for B0xx {
+    fn from(t: B0xxRaw) -> B0xx {
+        match t {
+            B0xxRaw::A => B0xx::Pure(Pure::Button(ButtonPure::A)),
+            B0xxRaw::X => B0xx::Pure(Pure::Button(ButtonPure::X)),
+            B0xxRaw::Y => B0xx::Pure(Pure::Button(ButtonPure::Y)),
+            B0xxRaw::Z => B0xx::Pure(Pure::Button(ButtonPure::Z)),
+            B0xxRaw::Start => B0xx::Pure(Pure::Button(ButtonPure::Start)),
+            B0xxRaw::B => B0xx::Impure(Impure::Button(ButtonImpure::B)),
+            B0xxRaw::L => B0xx::Impure(Impure::Button(ButtonImpure::L)),
+            B0xxRaw::R => B0xx::Impure(Impure::Button(ButtonImpure::R)),
+            B0xxRaw::Left => B0xx::Impure(Impure::Stick(Stick::A, Axis::X, NEGATIVE)),
+            B0xxRaw::Right => B0xx::Impure(Impure::Stick(Stick::A, Axis::X, POSITIVE)),
+            B0xxRaw::Down => B0xx::Impure(Impure::Stick(Stick::A, Axis::Y, NEGATIVE)),
+            B0xxRaw::Up => B0xx::Impure(Impure::Stick(Stick::A, Axis::Y, POSITIVE)),
+            B0xxRaw::MX => B0xx::Impure(Impure::ModX),
+            B0xxRaw::MY => B0xx::Impure(Impure::ModY),
+            B0xxRaw::LS => B0xx::Pure(Pure::Shield(Shield::Light)),
+            B0xxRaw::MS => B0xx::Pure(Pure::Shield(Shield::Medium)),
+            B0xxRaw::CU => B0xx::Impure(Impure::Stick(Stick::C, Axis::Y, POSITIVE)),
+            B0xxRaw::CD => B0xx::Impure(Impure::Stick(Stick::C, Axis::Y, NEGATIVE)),
+            B0xxRaw::CR => B0xx::Impure(Impure::Stick(Stick::C, Axis::X, POSITIVE)),
+            B0xxRaw::CL => B0xx::Impure(Impure::Stick(Stick::C, Axis::X, NEGATIVE)),
+        }
     }
 }
 
@@ -193,13 +226,13 @@ enum B0xx {
 
 struct B0xxEvent {
     time: libc::timeval,
-    btn: B0xx,
+    btn: B0xxRaw,
     pressed: Pressed,
 }
 
 impl B0xxEvent {
     #[cfg(test)]
-    fn new_without_time(btn: B0xx, pressed: Pressed) -> Self {
+    fn new_without_time(btn: B0xxRaw, pressed: Pressed) -> Self {
         Self {
             time: libc::timeval {
                 tv_sec: 0,
@@ -732,7 +765,7 @@ impl Main {
         }: B0xxEvent,
         crouch_walk_option_select: bool,
     ) -> Option<Input> {
-        let impure = match btn {
+        let impure = match btn.into() {
             B0xx::Pure(pure) => {
                 return match pure {
                     Pure::Button(btn_pure) => Some(Input::Button(Button::Pure(btn_pure), pressed)),
@@ -871,27 +904,69 @@ mod tests {
     use super::*;
     use test_case::test_case;
 
+    impl From<B0xx> for B0xxRaw {
+        fn from(b: B0xx) -> B0xxRaw {
+            match b {
+                B0xx::Pure(Pure::Button(ButtonPure::A)) => B0xxRaw::A,
+                B0xx::Pure(Pure::Button(ButtonPure::X)) => B0xxRaw::X,
+                B0xx::Pure(Pure::Button(ButtonPure::Y)) => B0xxRaw::Y,
+                B0xx::Pure(Pure::Button(ButtonPure::Z)) => B0xxRaw::Z,
+                B0xx::Pure(Pure::Button(ButtonPure::Start)) => B0xxRaw::Start,
+                B0xx::Impure(Impure::Button(ButtonImpure::B)) => B0xxRaw::B,
+                B0xx::Impure(Impure::Button(ButtonImpure::L)) => B0xxRaw::L,
+                B0xx::Impure(Impure::Button(ButtonImpure::R)) => B0xxRaw::R,
+                B0xx::Impure(Impure::Stick(Stick::A, Axis::X, NEGATIVE)) => B0xxRaw::Left,
+                B0xx::Impure(Impure::Stick(Stick::A, Axis::X, POSITIVE)) => B0xxRaw::Right,
+                B0xx::Impure(Impure::Stick(Stick::A, Axis::Y, NEGATIVE)) => B0xxRaw::Down,
+                B0xx::Impure(Impure::Stick(Stick::A, Axis::Y, POSITIVE)) => B0xxRaw::Up,
+                B0xx::Impure(Impure::ModX) => B0xxRaw::MX,
+                B0xx::Impure(Impure::ModY) => B0xxRaw::MY,
+                B0xx::Pure(Pure::Shield(Shield::Light)) => B0xxRaw::LS,
+                B0xx::Pure(Pure::Shield(Shield::Medium)) => B0xxRaw::MS,
+                B0xx::Impure(Impure::Stick(Stick::C, Axis::Y, POSITIVE)) => B0xxRaw::CU,
+                B0xx::Impure(Impure::Stick(Stick::C, Axis::Y, NEGATIVE)) => B0xxRaw::CD,
+                B0xx::Impure(Impure::Stick(Stick::C, Axis::X, POSITIVE)) => B0xxRaw::CR,
+                B0xx::Impure(Impure::Stick(Stick::C, Axis::X, NEGATIVE)) => B0xxRaw::CL,
+            }
+        }
+    }
+
+    impl From<(Stick, Axis, Direction)> for B0xxRaw {
+        fn from((stick, axis, dir): (Stick, Axis, Direction)) -> B0xxRaw {
+            match (stick, axis, dir) {
+                (Stick::A, Axis::X, POSITIVE) => B0xxRaw::Right,
+                (Stick::A, Axis::X, NEGATIVE) => B0xxRaw::Left,
+                (Stick::A, Axis::Y, POSITIVE) => B0xxRaw::Up,
+                (Stick::A, Axis::Y, NEGATIVE) => B0xxRaw::Down,
+                (Stick::C, Axis::X, POSITIVE) => B0xxRaw::CR,
+                (Stick::C, Axis::X, NEGATIVE) => B0xxRaw::CL,
+                (Stick::C, Axis::Y, POSITIVE) => B0xxRaw::CU,
+                (Stick::C, Axis::Y, NEGATIVE) => B0xxRaw::CD,
+            }
+        }
+    }
+
     #[test_case(&[
-        (B0xx::Pure(Pure::Shield(Shield::Light)), PRESSED, Some(Input::Trigger(LS))),
-        (B0xx::Pure(Pure::Shield(Shield::Medium)), PRESSED, Some(Input::Trigger(MS))),
-        (B0xx::Pure(Pure::Shield(Shield::Medium)), RELEASED, Some(Input::Trigger(LS))),
-        (B0xx::Pure(Pure::Shield(Shield::Light)), RELEASED, Some(Input::Trigger(Trigger::Z))),
+        (B0xxRaw::LS, PRESSED, Some(Input::Trigger(LS))),
+        (B0xxRaw::MS, PRESSED, Some(Input::Trigger(MS))),
+        (B0xxRaw::MS, RELEASED, Some(Input::Trigger(LS))),
+        (B0xxRaw::LS, RELEASED, Some(Input::Trigger(Trigger::Z))),
     ]; "shield1")]
     #[test_case(&[
-        (B0xx::Pure(Pure::Shield(Shield::Light)), PRESSED, Some(Input::Trigger(LS))),
-        (B0xx::Pure(Pure::Shield(Shield::Medium)), PRESSED, Some(Input::Trigger(MS))),
-        (B0xx::Pure(Pure::Shield(Shield::Light)), RELEASED, None),
-        (B0xx::Pure(Pure::Shield(Shield::Light)), PRESSED, Some(Input::Trigger(LS))),
-        (B0xx::Pure(Pure::Shield(Shield::Light)), RELEASED, Some(Input::Trigger(Trigger::Z))),
-        (B0xx::Pure(Pure::Shield(Shield::Medium)), RELEASED, None),
+        (B0xxRaw::LS, PRESSED, Some(Input::Trigger(LS))),
+        (B0xxRaw::MS, PRESSED, Some(Input::Trigger(MS))),
+        (B0xxRaw::LS, RELEASED, None),
+        (B0xxRaw::LS, PRESSED, Some(Input::Trigger(LS))),
+        (B0xxRaw::LS, RELEASED, Some(Input::Trigger(Trigger::Z))),
+        (B0xxRaw::MS, RELEASED, None),
     ]; "shield2")]
     #[test_case(&[
-        (B0xx::Pure(Pure::Shield(Shield::Medium)), PRESSED, Some(Input::Trigger(MS))),
-        (B0xx::Pure(Pure::Shield(Shield::Light)), PRESSED, Some(Input::Trigger(LS))),
-        (B0xx::Pure(Pure::Shield(Shield::Medium)), RELEASED, None),
-        (B0xx::Pure(Pure::Shield(Shield::Light)), RELEASED, Some(Input::Trigger(Trigger::Z))),
+        (B0xxRaw::MS, PRESSED, Some(Input::Trigger(MS))),
+        (B0xxRaw::LS, PRESSED, Some(Input::Trigger(LS))),
+        (B0xxRaw::MS, RELEASED, None),
+        (B0xxRaw::LS, RELEASED, Some(Input::Trigger(Trigger::Z))),
     ]; "shield3")]
-    fn steps(steps: &[(B0xx, Pressed, Option<Input>)]) {
+    fn steps(steps: &[(B0xxRaw, Pressed, Option<Input>)]) {
         let mut main = Main::default();
         for &(btn, pressed, want) in steps.into_iter() {
             assert_eq!(
@@ -902,31 +977,27 @@ mod tests {
     }
 
     #[test_case(&[], P7000, P7000; "a_stick")]
-    #[test_case(&[B0xx::Impure(Impure::ModX), B0xx::Impure(Impure::ModY)], P7000, P7000; "a_stick_both_mod")]
-    #[test_case(&[B0xx::Impure(Impure::ModX)], P7375, P3125; "mod_x")]
-    #[test_case(&[B0xx::Impure(Impure::ModX), B0xx::Impure(Impure::Stick(Stick::C, Axis::Y, NEGATIVE))], P7000, P3625; "mod_x1")]
-    #[test_case(&[B0xx::Impure(Impure::ModX), B0xx::Impure(Impure::Stick(Stick::C, Axis::X, NEGATIVE))], P7875, P4875; "mod_x2")]
-    #[test_case(&[B0xx::Impure(Impure::ModX), B0xx::Impure(Impure::Stick(Stick::C, Axis::Y, POSITIVE))], P7000, P5125; "mod_x3")]
-    #[test_case(&[B0xx::Impure(Impure::ModX), B0xx::Impure(Impure::Stick(Stick::C, Axis::X, POSITIVE))], P6125, P5250; "mod_x4")]
-    #[test_case(&[B0xx::Impure(Impure::ModY), B0xx::Impure(Impure::Stick(Stick::C, Axis::X, POSITIVE))], P6375, P7625; "mod_y4")]
-    #[test_case(&[B0xx::Impure(Impure::ModY), B0xx::Impure(Impure::Stick(Stick::C, Axis::Y, POSITIVE))], P5125, P7000; "mod_y3")]
-    #[test_case(&[B0xx::Impure(Impure::ModY), B0xx::Impure(Impure::Stick(Stick::C, Axis::X, NEGATIVE))], P4875, P7875; "mod_y2")]
-    #[test_case(&[B0xx::Impure(Impure::ModY), B0xx::Impure(Impure::Stick(Stick::C, Axis::Y, NEGATIVE))], P3625, P7000; "mod_y1")]
-    #[test_case(&[B0xx::Impure(Impure::ModY)], P3125, P7375; "mod_y")]
-    #[test_case(&[B0xx::Impure(Impure::ModX), B0xx::Impure(Impure::Button(ButtonImpure::L))], P6375, P3750; "mod_x_l")]
-    #[test_case(&[B0xx::Impure(Impure::ModX), B0xx::Impure(Impure::Button(ButtonImpure::R))], P6375, P3750; "mod_x_r")]
-    fn analog(buttons: &[B0xx], x_positive: Analog, y_positive: Analog) {
+    #[test_case(&[B0xxRaw::MX, B0xxRaw::MY], P7000, P7000; "a_stick_both_mod")]
+    #[test_case(&[B0xxRaw::MX], P7375, P3125; "mod_x")]
+    #[test_case(&[B0xxRaw::MX, B0xxRaw::CD], P7000, P3625; "mod_x1")]
+    #[test_case(&[B0xxRaw::MX, B0xxRaw::CL], P7875, P4875; "mod_x2")]
+    #[test_case(&[B0xxRaw::MX, B0xxRaw::CU], P7000, P5125; "mod_x3")]
+    #[test_case(&[B0xxRaw::MX, B0xxRaw::CR], P6125, P5250; "mod_x4")]
+    #[test_case(&[B0xxRaw::MY, B0xxRaw::CR], P6375, P7625; "mod_y4")]
+    #[test_case(&[B0xxRaw::MY, B0xxRaw::CU], P5125, P7000; "mod_y3")]
+    #[test_case(&[B0xxRaw::MY, B0xxRaw::CL], P4875, P7875; "mod_y2")]
+    #[test_case(&[B0xxRaw::MY, B0xxRaw::CD], P3625, P7000; "mod_y1")]
+    #[test_case(&[B0xxRaw::MY], P3125, P7375; "mod_y")]
+    #[test_case(&[B0xxRaw::MX, B0xxRaw::L], P6375, P3750; "mod_x_l")]
+    #[test_case(&[B0xxRaw::MX, B0xxRaw::R], P6375, P3750; "mod_x_r")]
+    fn analog(buttons: &[B0xxRaw], x_positive: Analog, y_positive: Analog) {
         for x in [POSITIVE, NEGATIVE] {
             for y in [POSITIVE, NEGATIVE] {
                 let mut buttons = buttons
                     .iter()
                     .copied()
                     .chain(
-                        [
-                            B0xx::Impure(Impure::Stick(Stick::A, Axis::X, x)),
-                            B0xx::Impure(Impure::Stick(Stick::A, Axis::Y, y)),
-                        ]
-                        .into_iter(),
+                        [(Stick::A, Axis::X, x).into(), (Stick::A, Axis::Y, y).into()].into_iter(),
                     )
                     .collect::<Vec<_>>();
                 let want = (x_positive.neg_not(x), y_positive.neg_not(y));
@@ -940,7 +1011,10 @@ mod tests {
                         .expect("final b0xx input resulted in null GC input");
                     let got = match got {
                         Input::ModifiedPress(a_stick, btn) => {
-                            assert_eq!(B0xx::Impure(Impure::Button(btn)), *buttons.last().unwrap());
+                            assert_eq!(
+                                B0xx::Impure(Impure::Button(btn)),
+                                (*buttons.last().unwrap()).into()
+                            );
                             a_stick
                         }
                         Input::Stick(Stick::A, a_stick) => a_stick,
@@ -953,12 +1027,12 @@ mod tests {
         }
     }
 
-    #[test_case(false, &[B0xx::Impure(Impure::ModY), B0xx::Impure(Impure::Button(ButtonImpure::L))], P4750, P8750, P5000, P8500; "mod_y_l")]
-    #[test_case(false, &[B0xx::Impure(Impure::ModY), B0xx::Impure(Impure::Button(ButtonImpure::R))], P4750, P8750, P5000, P8500; "mod_y_r")]
+    #[test_case(false, &[B0xxRaw::MY, B0xxRaw::L], P4750, P8750, P5000, P8500; "mod_y_l")]
+    #[test_case(false, &[B0xxRaw::MY, B0xxRaw::R], P4750, P8750, P5000, P8500; "mod_y_r")]
     #[test_case(true, &[], P7000, P7000, P7125, P6875; "crouch_walk_option_select")]
     fn analog_top_bottom(
         crouch_walk_option_select: bool,
-        buttons: &[B0xx],
+        buttons: &[B0xxRaw],
         x_top: Analog,
         y_top: Analog,
         x_bottom: Analog,
@@ -970,11 +1044,7 @@ mod tests {
                     .iter()
                     .copied()
                     .chain(
-                        [
-                            B0xx::Impure(Impure::Stick(Stick::A, Axis::X, x)),
-                            B0xx::Impure(Impure::Stick(Stick::A, Axis::Y, y)),
-                        ]
-                        .into_iter(),
+                        [(Stick::A, Axis::X, x).into(), (Stick::A, Axis::Y, y).into()].into_iter(),
                     )
                     .collect::<Vec<_>>();
                 let want = if y {
@@ -995,7 +1065,10 @@ mod tests {
                         .expect("final b0xx input resulted in null GC input");
                     let got = match got {
                         Input::ModifiedPress(a_stick, btn) => {
-                            assert_eq!(B0xx::Impure(Impure::Button(btn)), *buttons.last().unwrap());
+                            assert_eq!(
+                                B0xx::Impure(Impure::Button(btn)),
+                                (*buttons.last().unwrap()).into()
+                            );
                             a_stick
                         }
                         Input::Stick(Stick::A, a_stick) => a_stick,
@@ -1012,10 +1085,7 @@ mod tests {
     fn c_stick_diagonals() {
         for x in [POSITIVE, NEGATIVE] {
             for y in [POSITIVE, NEGATIVE] {
-                let mut buttons = [
-                    B0xx::Impure(Impure::Stick(Stick::C, Axis::X, x)),
-                    B0xx::Impure(Impure::Stick(Stick::C, Axis::Y, y)),
-                ];
+                let mut buttons = [(Stick::C, Axis::X, x).into(), (Stick::C, Axis::Y, y).into()];
                 let c_stick = (P5250.neg_not(x), P8500.neg_not(y));
                 permutohedron::heap_recursive(&mut buttons, |buttons| {
                     let mut main = Main::default();
@@ -1032,18 +1102,16 @@ mod tests {
     }
 
     #[test_case(&[], Stick::A, Analog::MAX, Analog::MAX; "a_stick")]
-    #[test_case(&[B0xx::Impure(Impure::ModX)], Stick::A, P6625, P5375; "a_stick_mod_x")]
-    #[test_case(&[B0xx::Impure(Impure::ModY)], Stick::A, P3375, P7375; "a_stick_mod_y")]
+    #[test_case(&[B0xxRaw::MX], Stick::A, P6625, P5375; "a_stick_mod_x")]
+    #[test_case(&[B0xxRaw::MY], Stick::A, P3375, P7375; "a_stick_mod_y")]
     #[test_case(&[], Stick::C, Analog::MAX, Analog::MAX; "c_stick")]
-    fn cardinals(buttons: &[B0xx], stick: Stick, x_positive: Analog, y_positive: Analog) {
+    fn cardinals(buttons: &[B0xxRaw], stick: Stick, x_positive: Analog, y_positive: Analog) {
         for axis in [Axis::X, Axis::Y] {
             for dir in [POSITIVE, NEGATIVE] {
                 let mut buttons = buttons
                     .iter()
                     .copied()
-                    .chain(std::iter::once(B0xx::Impure(Impure::Stick(
-                        stick, axis, dir,
-                    ))))
+                    .chain(std::iter::once((stick, axis, dir).into()))
                     .collect::<Vec<_>>();
                 let want = match axis {
                     Axis::X => (x_positive.neg_not(dir), P0000),
@@ -1068,21 +1136,14 @@ mod tests {
         for axis in [Axis::X, Axis::Y] {
             for dir in [POSITIVE, NEGATIVE] {
                 let mut main = Main::default();
-                let got = main.process_b0xx(
-                    B0xxEvent::new_without_time(B0xx::Impure(Impure::ModX), PRESSED),
-                    false,
-                );
+                let got =
+                    main.process_b0xx(B0xxEvent::new_without_time(B0xxRaw::MX, PRESSED), false);
+                assert_eq!(got, None);
+                let got =
+                    main.process_b0xx(B0xxEvent::new_without_time(B0xxRaw::MY, PRESSED), false);
                 assert_eq!(got, None);
                 let got = main.process_b0xx(
-                    B0xxEvent::new_without_time(B0xx::Impure(Impure::ModY), PRESSED),
-                    false,
-                );
-                assert_eq!(got, None);
-                let got = main.process_b0xx(
-                    B0xxEvent::new_without_time(
-                        B0xx::Impure(Impure::Stick(Stick::C, axis, dir)),
-                        PRESSED,
-                    ),
+                    B0xxEvent::new_without_time((Stick::C, axis, dir).into(), PRESSED),
                     false,
                 );
                 assert_eq!(got, Some(Input::Button(Button::DPad(axis, dir), PRESSED)));
@@ -1095,16 +1156,11 @@ mod tests {
         for x_dir in [POSITIVE, NEGATIVE] {
             for y_dir in [POSITIVE, NEGATIVE] {
                 let mut main = Main::default();
-                let got = main.process_b0xx(
-                    B0xxEvent::new_without_time(B0xx::Impure(Impure::ModX), PRESSED),
-                    false,
-                );
+                let got =
+                    main.process_b0xx(B0xxEvent::new_without_time(B0xxRaw::MX, PRESSED), false);
                 assert_eq!(got, None);
                 let got = main.process_b0xx(
-                    B0xxEvent::new_without_time(
-                        B0xx::Impure(Impure::Stick(Stick::A, Axis::Y, y_dir)),
-                        PRESSED,
-                    ),
+                    B0xxEvent::new_without_time((Stick::A, Axis::Y, y_dir).into(), PRESSED),
                     false,
                 );
                 assert_eq!(
@@ -1112,10 +1168,7 @@ mod tests {
                     Some(Input::Stick(Stick::A, (P0000, P5375.neg_not(y_dir))))
                 );
                 let got = main.process_b0xx(
-                    B0xxEvent::new_without_time(
-                        B0xx::Impure(Impure::Stick(Stick::C, Axis::X, x_dir)),
-                        PRESSED,
-                    ),
+                    B0xxEvent::new_without_time((Stick::C, Axis::X, x_dir).into(), PRESSED),
                     false,
                 );
                 assert_eq!(
@@ -1126,10 +1179,7 @@ mod tests {
                     ))
                 );
                 let got = main.process_b0xx(
-                    B0xxEvent::new_without_time(
-                        B0xx::Impure(Impure::Stick(Stick::C, Axis::X, x_dir)),
-                        RELEASED,
-                    ),
+                    B0xxEvent::new_without_time((Stick::C, Axis::X, x_dir).into(), RELEASED),
                     false,
                 );
                 assert_eq!(got, Some(Input::Stick(Stick::C, (P0000, P0000))));
@@ -1140,17 +1190,8 @@ mod tests {
     #[test]
     fn accidental_side_b() {
         for dir in [POSITIVE, NEGATIVE] {
-            let mut buttons = [
-                B0xx::Impure(Impure::ModY),
-                B0xx::Impure(Impure::Button(ButtonImpure::B)),
-            ]
-            .into_iter()
-            .chain(std::iter::once(B0xx::Impure(Impure::Stick(
-                Stick::A,
-                Axis::X,
-                dir,
-            ))))
-            .collect::<Vec<_>>();
+            let left_right = (Stick::A, Axis::X, dir).into();
+            let mut buttons = vec![B0xxRaw::MY, B0xxRaw::B, left_right];
             permutohedron::heap_recursive(&mut buttons, |buttons| {
                 let mut main = Main::default();
                 let got = buttons
@@ -1160,7 +1201,7 @@ mod tests {
                     })
                     .expect("final b0xx input resulted in null GC input");
                 let want = match *buttons.last().unwrap() {
-                    B0xx::Impure(Impure::Button(ButtonImpure::B)) => {
+                    B0xxRaw::B => {
                         Input::ModifiedPress((P6625.neg_not(dir), P0000), ButtonImpure::B)
                     }
                     _ => Input::Stick(Stick::A, (P6625.neg_not(dir), P0000)),
@@ -1172,18 +1213,14 @@ mod tests {
 
     #[test]
     fn ledgedash_optimization() {
-        for modifier in [B0xx::Impure(Impure::ModX), B0xx::Impure(Impure::ModY)] {
-            let mut buttons = [
-                B0xx::Impure(Impure::Stick(Stick::A, Axis::X, POSITIVE)),
-                B0xx::Impure(Impure::Stick(Stick::A, Axis::X, NEGATIVE)),
-                modifier,
-            ];
+        for modifier in [B0xxRaw::MX, B0xxRaw::MY] {
+            let mut buttons = [B0xxRaw::Left, B0xxRaw::Right, modifier];
             permutohedron::heap_recursive(&mut buttons, |buttons| {
                 let mut main = Main::default();
                 let got = buttons.iter().fold(None, |_, &btn| {
                     main.process_b0xx(B0xxEvent::new_without_time(btn, PRESSED), false)
                 });
-                let want = match *buttons.last().unwrap() {
+                let want = match (*buttons.last().unwrap()).into() {
                     B0xx::Impure(Impure::ModX) | B0xx::Impure(Impure::ModY) => None,
                     B0xx::Impure(Impure::Stick(Stick::A, Axis::X, dir)) => {
                         Some(Input::Stick(Stick::A, (Analog::MAX.neg_not(dir), P0000)))
