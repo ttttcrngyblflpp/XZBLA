@@ -1,3 +1,8 @@
+**On indefinite hiatus due to lack of specification in the exact rules
+behind the timing lockouts and the weirdness around implementation when
+the logical controller is not polled at the same rate as a real GC
+controller is polled.**
+
 # tuxb0xx
 
 Emulates b0xx on keyboard for Linux by listening for evdev keyboard events and
