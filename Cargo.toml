@@ -24,3 +24,4 @@ edition = "2021"
 [dev-dependencies]
 "test-case" = "2.0"
 "permutohedron" = "0.2"
+"itertools" = "0.10"

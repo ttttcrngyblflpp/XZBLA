@@ -457,37 +457,9 @@ bitflags::bitflags! {
         const R = 0x004;
         const MOD_X = 0x008;
         const MOD_Y = 0x010;
-        const D_UP = 0x020;
-        const D_DOWN = 0x040;
-        const D_LEFT = 0x080;
-        const D_RIGHT = 0x100;
 
         const MODS = Self::MOD_X.bits | Self::MOD_Y.bits;
         const LR = Self::L.bits | Self::R.bits;
-    }
-}
-
-impl B0xxState {
-    fn dpad_convert(axis: Axis, dir: Direction) -> Self {
-        match (axis, dir) {
-            (Axis::X, POSITIVE) => Self::D_RIGHT,
-            (Axis::X, NEGATIVE) => Self::D_LEFT,
-            (Axis::Y, POSITIVE) => Self::D_UP,
-            (Axis::Y, NEGATIVE) => Self::D_DOWN,
-        }
-    }
-
-    fn dpad_insert(&mut self, axis: Axis, dir: Direction) {
-        self.insert(Self::dpad_convert(axis, dir))
-    }
-
-    fn dpad_clear_if(&mut self, axis: Axis, dir: Direction) -> bool {
-        let bit = Self::dpad_convert(axis, dir);
-        let rtn = self.contains(bit);
-        if rtn {
-            self.remove(bit);
-        }
-        rtn
     }
 }
 
@@ -501,6 +473,7 @@ const RELEASED: Pressed = false;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 enum AxisState {
+    // No direction is active, but the direction if present is held.
     Null(Option<Direction>),
     // Direction is active and whether the opposing direction is pressed.
     Active(Direction, Pressed),
@@ -513,6 +486,35 @@ impl std::default::Default for AxisState {
 }
 
 impl AxisState {
+    fn active(self) -> Option<Direction> {
+        match self {
+            Self::Null(_) => None,
+            Self::Active(dir, _) => Some(dir),
+        }
+    }
+
+    fn active_unique(self) -> Option<Direction> {
+        match self {
+            Self::Null(_) => None,
+            Self::Active(dir, opposite) => (!opposite).then_some(dir),
+        }
+    }
+
+    fn state_in_dir(self, dir: Direction) -> AxisButtonState {
+        match self {
+            Self::Null(optional_pressed_dir) => {
+                AxisButtonState::Inactive(optional_pressed_dir == Some(dir))
+            }
+            Self::Active(active_dir, opposite_pressed) => {
+                if active_dir == dir {
+                    AxisButtonState::Active
+                } else {
+                    AxisButtonState::Inactive(opposite_pressed)
+                }
+            }
+        }
+    }
+
     fn transition(&mut self, dir: Direction, pressed: Pressed) {
         *self = match *self {
             Self::Null(None) if pressed => Self::Active(dir, RELEASED),
@@ -531,6 +533,125 @@ impl AxisState {
             }
             _ => *self,
         }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+enum AxisButtonState {
+    Active,
+    Inactive(Pressed),
+}
+
+impl AxisButtonState {
+    fn from_pressed(pressed: Pressed) -> Self {
+        if pressed {
+            Self::Active
+        } else {
+            Self::Inactive(RELEASED)
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
+enum DualModeAxisState {
+    Neither(AxisState),
+    // The direction that is still enabled and its state.
+    Single(Direction, AxisButtonState),
+    Both,
+}
+
+impl std::default::Default for DualModeAxisState {
+    fn default() -> Self {
+        Self::Neither(Default::default())
+    }
+}
+
+impl DualModeAxisState {
+    // Active is defined as the active direction regardless of SOCD handling,
+    // or disabled directions being held.
+    fn active(self) -> Option<Direction> {
+        match self {
+            Self::Both => None,
+            Self::Single(dir, state) => (state == AxisButtonState::Active).then_some(dir),
+            Self::Neither(axis_state) => axis_state.active(),
+        }
+    }
+
+    // Returns the direction that is active if the opposing direction is either
+    // disabled or not held.
+    fn active_unique(self) -> Option<Direction> {
+        match self {
+            Self::Both => None,
+            Self::Single(dir, state) => (state == AxisButtonState::Active).then_some(dir),
+            Self::Neither(axis_state) => axis_state.active_unique(),
+        }
+    }
+
+    // TODO: This function is complicated and needs unit tests.
+    /// Returns true iff alt mode was released as a result of the transition.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the input is inconsistent with current state. No-ops are
+    /// ignored and do not cause a panic.
+    fn transition(&mut self, dir: Direction, pressed: Pressed, alt_on_pressed: bool) -> bool {
+        let (new_state, alt_released) = (|s| {
+            match s {
+                Self::Both => {
+                    if pressed && !alt_on_pressed {
+                        panic!(
+                            "both directions are in alt mode but direction {} is pressed",
+                            dir
+                        );
+                    }
+                    if !pressed {
+                        return (
+                            Self::Single(!dir, AxisButtonState::Inactive(RELEASED)),
+                            true,
+                        );
+                    }
+                }
+                Self::Single(normal_dir, state) => {
+                    if dir == normal_dir {
+                        if pressed && alt_on_pressed {
+                            return (Self::Both, false);
+                        }
+                        return (
+                            Self::Single(dir, AxisButtonState::from_pressed(pressed)),
+                            false,
+                        );
+                    } else {
+                        if pressed {
+                            if !alt_on_pressed {
+                                panic!("direction {} is in alt mode but pressed normally", dir);
+                            }
+                        } else {
+                            return (
+                                match state {
+                                    AxisButtonState::Active => {
+                                        Self::Neither(AxisState::Active(normal_dir, RELEASED))
+                                    }
+                                    AxisButtonState::Inactive(inactive_pressed) => Self::Neither(
+                                        AxisState::Null(inactive_pressed.then_some(normal_dir)),
+                                    ),
+                                },
+                                true,
+                            );
+                        }
+                    }
+                }
+                Self::Neither(mut axis_state) => {
+                    if pressed && alt_on_pressed {
+                        return (Self::Single(!dir, axis_state.state_in_dir(dir)), false);
+                    }
+                    axis_state.transition(dir, pressed);
+                    return (Self::Neither(axis_state), false);
+                }
+            }
+            return (s, false);
+        })(*self);
+        *self = new_state;
+        alt_released
     }
 }
 
@@ -601,11 +722,51 @@ impl StickState {
     }
 }
 
+#[derive(Debug, Default, Clone, Copy, Eq, PartialEq, Hash)]
+struct CStickState {
+    x: DualModeAxisState,
+    y: DualModeAxisState,
+    gc_input: GCStickInput,
+}
+
+// Simplify the callsite by using a more specific form.
+impl CStickState {
+    // Returns the unique axis and direction that is active and no other
+    // buttons are pressed.
+    fn unique_cardinal(&self) -> Option<(Axis, Direction)> {
+        match (self.x.active_unique(), self.y.active_unique()) {
+            (Some(dir), None) => Some((Axis::X, dir)),
+            (None, Some(dir)) => Some((Axis::Y, dir)),
+            (None, None) | (Some(_), Some(_)) => None,
+        }
+    }
+
+    fn update(&mut self, input: GCStickInput) -> Option<GCStickInput> {
+        (self.gc_input != input).then(|| {
+            self.gc_input = input;
+            input
+        })
+    }
+
+    fn transition(
+        &mut self,
+        axis: Axis,
+        dir: Direction,
+        pressed: Pressed,
+        dpad_enabled: bool,
+    ) -> bool {
+        return match axis {
+            Axis::X => self.x.transition(dir, pressed, dpad_enabled),
+            Axis::Y => self.y.transition(dir, pressed, dpad_enabled),
+        };
+    }
+}
+
 #[derive(Default)]
 struct Main {
     state: B0xxState,
     a_stick: StickState,
-    c_stick: StickState,
+    c_stick: CStickState,
     shield_state: ShieldState,
 }
 
@@ -626,9 +787,9 @@ impl std::convert::From<Shield> for Trigger {
 
 impl Main {
     fn update_c_stick(&mut self) -> Option<GCStickInput> {
-        let input = match (self.c_stick.x, self.c_stick.y) {
-            (AxisState::Null(_), AxisState::Null(_)) => (P0000, P0000),
-            (AxisState::Active(x_dir, _), AxisState::Null(_)) => {
+        let input = match (self.c_stick.x.active(), self.c_stick.y.active()) {
+            (None, None) => (P0000, P0000),
+            (Some(x_dir), None) => {
                 if self.state & B0xxState::MODS == B0xxState::MOD_X {
                     match (self.a_stick.x, self.a_stick.y) {
                         (AxisState::Null(_), AxisState::Active(y_dir, _)) => {
@@ -640,13 +801,10 @@ impl Main {
                     (Analog::MAX.neg_not(x_dir), P0000)
                 }
             }
-            (AxisState::Null(_), AxisState::Active(y_dir, _)) => {
-                (P0000, Analog::MAX.neg_not(y_dir))
-            }
-            (AxisState::Active(x_dir, _), AxisState::Active(y_dir, _)) => {
-                (P5250.neg_not(x_dir), P8500.neg_not(y_dir))
-            }
+            (None, Some(y_dir)) => (P0000, Analog::MAX.neg_not(y_dir)),
+            (Some(x_dir), Some(y_dir)) => (P5250.neg_not(x_dir), P8500.neg_not(y_dir)),
         };
+        // TODO: GCStickInput should be stored separately to the CStick state.
         self.c_stick.update(input)
     }
 
@@ -680,68 +838,27 @@ impl Main {
                 let (x, y) = match (
                     self.state & B0xxState::MODS,
                     self.state.intersects(B0xxState::LR),
-                    self.c_stick.x,
-                    self.c_stick.y,
+                    self.c_stick.unique_cardinal(),
                 ) {
-                    (B0xxState::MOD_X, true, _, _) => (P6375, P3750),
-                    (
-                        B0xxState::MOD_X,
-                        false,
-                        AxisState::Null(None),
-                        AxisState::Active(NEGATIVE, RELEASED),
-                    ) => (P7000, P3625),
-                    (
-                        B0xxState::MOD_X,
-                        false,
-                        AxisState::Active(NEGATIVE, RELEASED),
-                        AxisState::Null(None),
-                    ) => (P7875, P4875),
-                    (
-                        B0xxState::MOD_X,
-                        false,
-                        AxisState::Null(None),
-                        AxisState::Active(POSITIVE, RELEASED),
-                    ) => (P7000, P5125),
-                    (
-                        B0xxState::MOD_X,
-                        false,
-                        AxisState::Active(POSITIVE, RELEASED),
-                        AxisState::Null(None),
-                    ) => (P6125, P5250),
-                    (B0xxState::MOD_X, _, _, _) => (P7375, P3125),
+                    (B0xxState::MOD_X, true, _) => (P6375, P3750),
+                    (B0xxState::MOD_X, false, Some((Axis::Y, NEGATIVE))) => (P7000, P3625),
+                    (B0xxState::MOD_X, false, Some((Axis::X, NEGATIVE))) => (P7875, P4875),
+                    (B0xxState::MOD_X, false, Some((Axis::Y, POSITIVE))) => (P7000, P5125),
+                    (B0xxState::MOD_X, false, Some((Axis::X, POSITIVE))) => (P6125, P5250),
+                    (B0xxState::MOD_X, false, None) => (P7375, P3125),
 
-                    (B0xxState::MOD_Y, true, _, _) => {
+                    (B0xxState::MOD_Y, true, _) => {
                         if y_dir {
                             (P4750, P8750)
                         } else {
                             (P5000, P8500)
                         }
                     }
-                    (
-                        B0xxState::MOD_Y,
-                        false,
-                        AxisState::Active(POSITIVE, RELEASED),
-                        AxisState::Null(None),
-                    ) => (P6375, P7625),
-                    (
-                        B0xxState::MOD_Y,
-                        false,
-                        AxisState::Null(None),
-                        AxisState::Active(POSITIVE, RELEASED),
-                    ) => (P5125, P7000),
-                    (
-                        B0xxState::MOD_Y,
-                        false,
-                        AxisState::Active(NEGATIVE, RELEASED),
-                        AxisState::Null(None),
-                    ) => (P4875, P7875),
-                    (
-                        B0xxState::MOD_Y,
-                        false,
-                        AxisState::Null(None),
-                        AxisState::Active(NEGATIVE, RELEASED),
-                    ) => (P3625, P7000),
-                    (B0xxState::MOD_Y, _, _, _) => (P3125, P7375),
+                    (B0xxState::MOD_Y, false, Some((Axis::X, POSITIVE))) => (P6375, P7625),
+                    (B0xxState::MOD_Y, false, Some((Axis::Y, POSITIVE))) => (P5125, P7000),
+                    (B0xxState::MOD_Y, false, Some((Axis::X, NEGATIVE))) => (P4875, P7875),
+                    (B0xxState::MOD_Y, false, Some((Axis::Y, NEGATIVE))) => (P3625, P7000),
+                    (B0xxState::MOD_Y, false, None) => (P3125, P7375),
                     _ => {
                         if !y_dir && crouch_walk_option_select {
                             (P7125, P6875)
@@ -804,16 +921,14 @@ impl Main {
                 );
             }
             Impure::Stick(Stick::C, axis, dir) => {
-                if pressed && self.state.contains(B0xxState::MODS) {
-                    self.state.dpad_insert(axis, dir);
+                let dpad_enabled = self.state.contains(B0xxState::MODS);
+                let dpad_released = self.c_stick.transition(axis, dir, pressed, dpad_enabled);
+
+                if dpad_enabled && pressed {
                     return Some(Input::Button(Button::DPad(axis, dir), PRESSED));
-                } else if !pressed && self.state.dpad_clear_if(axis, dir) {
+                }
+                if dpad_released {
                     return Some(Input::Button(Button::DPad(axis, dir), RELEASED));
-                } else {
-                    match axis {
-                        Axis::X => self.c_stick.x.transition(dir, pressed),
-                        Axis::Y => self.c_stick.y.transition(dir, pressed),
-                    }
                 }
             }
             Impure::Stick(Stick::A, Axis::X, dir) => self.a_stick.x.transition(dir, pressed),
@@ -902,7 +1017,22 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use itertools::Itertools as _;
     use test_case::test_case;
+
+    const CARDINALS: [(Axis, Direction); 4] = [
+        (Axis::X, POSITIVE),
+        (Axis::X, NEGATIVE),
+        (Axis::Y, POSITIVE),
+        (Axis::Y, NEGATIVE),
+    ];
+
+    const DIAGONALS: [(Direction, Direction); 4] = [
+        (POSITIVE, POSITIVE),
+        (POSITIVE, NEGATIVE),
+        (NEGATIVE, NEGATIVE),
+        (NEGATIVE, POSITIVE),
+    ];
 
     impl From<B0xx> for B0xxRaw {
         fn from(b: B0xx) -> B0xxRaw {
@@ -1148,6 +1278,33 @@ mod tests {
                 );
                 assert_eq!(got, Some(Input::Button(Button::DPad(axis, dir), PRESSED)));
             }
+        }
+    }
+
+    // When a C-stick button is acting as dpad, and one of the modifiers is
+    // released, diagonals should not be modified.
+    #[test]
+    fn dpad_not_modify() {
+        for ((c_axis, c_dir), (x_dir, y_dir)) in CARDINALS.into_iter().cartesian_product(DIAGONALS)
+        {
+            let mut main = Main::default();
+            let _ = main.process_b0xx(B0xxEvent::new_without_time(B0xxRaw::MX, PRESSED), false);
+            let _ = main.process_b0xx(B0xxEvent::new_without_time(B0xxRaw::MY, PRESSED), false);
+            let _ = main.process_b0xx(
+                B0xxEvent::new_without_time((Stick::C, c_axis, c_dir).into(), PRESSED),
+                false,
+            );
+            let _ = main.process_b0xx(B0xxEvent::new_without_time(B0xxRaw::MY, RELEASED), false);
+            let _ = main.process_b0xx(
+                B0xxEvent::new_without_time((Stick::A, Axis::X, x_dir).into(), PRESSED),
+                false,
+            );
+            let got = main.process_b0xx(
+                B0xxEvent::new_without_time((Stick::A, Axis::Y, y_dir).into(), PRESSED),
+                false,
+            );
+            let want = (P7375.neg_not(x_dir), P3125.neg_not(y_dir));
+            assert_eq!(got, Some(Input::Stick(Stick::A, want)),);
         }
     }
 
